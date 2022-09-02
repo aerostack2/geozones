@@ -1,3 +1,3 @@
-# as2_node_template
+# geofencing
 
-Template for Aerostack2 Nodes
+Geofencing
