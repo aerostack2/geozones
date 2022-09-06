@@ -38,6 +38,7 @@
 #include "json.hpp"
 
 #include <rclcpp/rclcpp.hpp>
+#include <algorithm>
 #include <iterator>
 #include <vector>
 #include <filesystem>
@@ -72,10 +73,14 @@ private:
   bool start_run_;
   float self_latitude_;
   float self_longitude_;
+  int max_priority;
+  bool geofence_detected;
   std::string config_path_;
   
-  std::vector<std::vector<std::array<float,2>>> geofences;
-  std::vector<int>priorities;
+  std::vector<std::vector<std::array<float,2>>> polygons;
+  std::vector<int>ids;
+  std::vector<int>alerts;
+  std::vector<bool>geofences_in;
   
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Publisher<as2_msgs::msg::Alert>::SharedPtr alert_pub_;

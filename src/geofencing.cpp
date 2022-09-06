@@ -44,24 +44,32 @@ void Geofencing::run()
   {
     return;
   }
-  if (geofences.size() == 0){
+  if (polygons.size() == 0){
 
   }
   else {
     std::array<float,2> point{self_latitude_, self_longitude_};
-    for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = geofences.begin(); ptr < geofences.end(); ptr++){
-      if (geofence::isIn<float>((*ptr), point)){
-        as2_msgs::msg::Alert alert;
-        int index = ptr - geofences.begin();
-        std::vector<int>::iterator ptr2 = priorities.begin() + index;
-        alert.alert_code = (*ptr2);
-        alert_pub_->publish(alert);
+    as2_msgs::msg::Alert alert;
+    for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = polygons.begin(); ptr < polygons.end(); ptr++){
+      int index = ptr - polygons.begin();
+      std::vector<bool>::iterator ptr_in = geofences_in.begin() + index;
+      if (!geofence::isIn<float>((*ptr), point)){
+        if ((*ptr_in) == true){
+          std::vector<int>::iterator ptr_alert = alerts.begin() + index;
+          alert.alert_code = (*ptr_alert);
+          alert_pub_->publish(alert);
+          (*ptr_in) = false;
+        }
       }
-    }
+      else{
+        if ((*ptr_in)==false){
+          (*ptr_in) = true;
+        }
+      }
+    } 
   }
-  // TODO: METHODS
 }
-
+// TODO: METHODS
 void Geofencing::setupNode()
 {
   gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
@@ -92,8 +100,13 @@ void Geofencing::loadGeofences(const std::string path){
   auto json = nlohmann::json::parse(buffer.str());
   for (auto geofence : json["geofences"])
   {
+      if (std::find(ids.begin(), ids.end(), geofence["id"]) != ids.end()){
+        RCLCPP_WARN(this->get_logger(), "Id already exist.");
+        return;
+      }
       if (std::size(geofence["polygon"]) < 3){
         RCLCPP_WARN(this->get_logger(), "Invalid Geofence.");
+        return;
       }
       else{
         std::vector<std::array<float,2>> polygon;
@@ -101,8 +114,10 @@ void Geofencing::loadGeofences(const std::string path){
         {
             polygon.push_back(point);
         }
-        priorities.push_back(geofence["priority"]);
-        geofences.push_back(polygon);
+        alerts.push_back(geofence["alert"]);
+        ids.push_back(geofence["id"]);
+        geofences_in.push_back(false);
+        polygons.push_back(polygon);
         RCLCPP_INFO(this->get_logger(), "Geofence Succesfully loaded from JSON file");
       }
   }
@@ -121,18 +136,25 @@ void Geofencing::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg)
 
 void Geofencing::setGeofenceCb(const std::shared_ptr<as2_msgs::srv::SetGeofence::Request> request, 
                                 std::shared_ptr<as2_msgs::srv::SetGeofence::Response> response) {
-  if (std::size(request->geofence.points) < 3){
+  if (std::find(ids.begin(), ids.end(), request->geofence.id) != ids.end()){
+      RCLCPP_WARN(this->get_logger(), "Id already exist.");
+      response->success = false;
+      return;
+  }
+  if (std::size(request->geofence.polygon.points) < 3){
       RCLCPP_WARN(this->get_logger(), "Invalid Geofence.");
-      response->success = false;    
+      response->success = false;
   }
   else{
       std::vector<std::array<float,2>> polygon;
-      for (int i = 0; i < std::size(request->geofence.points); i++){
-        std::array<float,2> point{request->geofence.points[i].x, request->geofence.points[i].y};
+      for (int i = 0; i < std::size(request->geofence.polygon.points); i++){
+        std::array<float,2> point{request->geofence.polygon.points[i].x, request->geofence.polygon.points[i].y};
         polygon.push_back(point);
       }
-      priorities.push_back(request->priority);
-      geofences.push_back(polygon);
+      alerts.push_back(request->geofence.alert);
+      ids.push_back(request->geofence.id);
+      geofences_in.push_back(false);
+      polygons.push_back(polygon);
       RCLCPP_INFO(this->get_logger(), "Geofence added.");
       response->success = true;
   }
@@ -140,24 +162,30 @@ void Geofencing::setGeofenceCb(const std::shared_ptr<as2_msgs::srv::SetGeofence:
 
 void Geofencing::getGeofenceCb(const std::shared_ptr<as2_msgs::srv::GetGeofence::Request> request, 
                                 std::shared_ptr<as2_msgs::srv::GetGeofence::Response> response) {
-  if (priorities.size() == 0){
+  if (polygons.size() == 0){
       RCLCPP_WARN(this->get_logger(), "No geofence has been set yet.");
       response->success = false;
   }
   else{
-      std::vector<geometry_msgs::msg::Polygon> poly_list;
-      for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = geofences.begin(); ptr < geofences.end(); ptr++){
-        geometry_msgs::msg::Polygon poly;
+      std::vector<as2_msgs::msg::Geofence> geofence_list;
+      for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = polygons.begin(); ptr < polygons.end(); ptr++){
+        as2_msgs::msg::Geofence geofence;
+
         for (std::vector<std::array<float,2>>::iterator ptr2 = (*ptr).begin(); ptr2 < (*ptr).end(); ptr2++){
           geometry_msgs::msg::Point32 point;
           point.x = (*ptr2)[0];
           point.y = (*ptr2)[1];
-          poly.points.push_back(point);
+          geofence.polygon.points.push_back(point);
         }
-        poly_list.push_back(poly);  
+        
+        int index = ptr - polygons.begin();
+        std::vector<int>::iterator ptr_alert = alerts.begin() + index;
+        std::vector<int>::iterator ptr_id = ids.begin() + index;
+        geofence.alert = (*ptr_alert);
+        geofence.id = (*ptr_id);
+        geofence_list.push_back(geofence);
       }
-      response->priorities = priorities;
-      response->geofences = poly_list;
+      response->geofences = geofence_list;
       response->success = true;
   }
 }
