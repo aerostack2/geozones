@@ -35,7 +35,7 @@
 
 Geofencing::Geofencing() : as2::Node("geofencing")
 {
-  this->declare_parameter<std::string>("config_file", "config/geofences.json");
+  this->declare_parameter<std::string>("config_file", "geofencing/geofences.json");
 }
 
 void Geofencing::run()
@@ -61,13 +61,13 @@ void Geofencing::run()
         alert_pub_->publish(alert);
         if ((*ptr_in) == true){
           (*ptr_in) = false;
-          RCLCPP_INFO(this->get_logger(), "Ha salido de Geofence: %s" , std::to_string((*ptr_id)).c_str());
+          RCLCPP_INFO(this->get_logger(), "Exited geofence: %s" , std::to_string((*ptr_id)).c_str());
         }
       }
       else{
         if ((*ptr_in)==false){
           (*ptr_in) = true;
-          RCLCPP_INFO(this->get_logger(), "Ha entrado en Geofence: %s" , std::to_string((*ptr_id)).c_str());
+          RCLCPP_INFO(this->get_logger(), "Entered Geofence: %s" , std::to_string((*ptr_id)).c_str());
         }
       }
     } 

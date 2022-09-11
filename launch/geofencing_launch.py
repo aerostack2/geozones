@@ -7,7 +7,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('drone_id', default_value='drone0'),
-        DeclareLaunchArgument('config_file', default_value='config/geofences.json'),
+        DeclareLaunchArgument('config_file', default_value='geofencing/geofences.json'),
         Node(
             package='geofencing',
             executable='geofencing_node',
