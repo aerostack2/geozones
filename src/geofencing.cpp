@@ -53,17 +53,21 @@ void Geofencing::run()
     for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = polygons.begin(); ptr < polygons.end(); ptr++){
       int index = ptr - polygons.begin();
       std::vector<bool>::iterator ptr_in = geofences_in.begin() + index;
+      std::vector<int>::iterator ptr_id = ids.begin() + index;
       if (!geofence::isIn<float>((*ptr), point)){
+        std::vector<int>::iterator ptr_alert = alerts.begin() + index;
+        alert.alert = (*ptr_alert);
+        alert.id = (*ptr_id);
+        alert_pub_->publish(alert);
         if ((*ptr_in) == true){
-          std::vector<int>::iterator ptr_alert = alerts.begin() + index;
-          alert.alert_code = (*ptr_alert);
-          alert_pub_->publish(alert);
           (*ptr_in) = false;
+          RCLCPP_INFO(this->get_logger(), "Ha salido de Geofence: %s" , std::to_string((*ptr_id)).c_str());
         }
       }
       else{
         if ((*ptr_in)==false){
           (*ptr_in) = true;
+          RCLCPP_INFO(this->get_logger(), "Ha entrado en Geofence: %s" , std::to_string((*ptr_id)).c_str());
         }
       }
     } 
@@ -88,9 +92,9 @@ void Geofencing::setupNode()
   alert_pub_ = this->create_publisher<as2_msgs::msg::Alert>(
       this->generate_global_name("alert"), 10);
 
-  std::string full_path_ = ament_index_cpp::get_package_share_directory("geofencing");
+  //std::string full_path_ = ament_index_cpp::get_package_share_directory("geofencing");
   //config_path_ = "config/geofences.json";
-  loadGeofences(full_path_ + "/" + config_path_);
+  loadGeofences(config_path_);
 }
 
 void Geofencing::loadGeofences(const std::string path){
