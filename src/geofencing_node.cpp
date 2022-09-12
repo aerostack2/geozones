@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<Geofencing>();
-  node->preset_loop_frequency(100); // Node frequency for run and callbacks
+  node->preset_loop_frequency(10); // Node frequency for run and callbacks
   as2::spinLoop(node, std::bind(&Geofencing::run, node));
   rclcpp::shutdown();
   return 0;
