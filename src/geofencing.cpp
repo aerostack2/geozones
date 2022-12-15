@@ -36,25 +36,40 @@
 Geofencing::Geofencing() : as2::Node("geofencing")
 {
   this->declare_parameter<std::string>("config_file", "geofencing/geofences.json");
+  this->declare_parameter<std::string>("mode", "gps");
 }
 
 void Geofencing::run()
 {
+  if (mode_ == "gps"){
+    point_ = {self_latitude_, self_longitude_};
+  }
+
+  else if (mode_ == "cartesian"){
+    point_ = {self_x_, self_y_};
+  }
+
+  else{
+    RCLCPP_ERROR(this->get_logger(), "Invalid mode: %s" , mode_.c_str());
+    return;
+  }
+
   if (!start_run_)
   {
     return;
   }
+
   if (polygons.size() == 0){
 
   }
   else {
-    std::array<float,2> point{self_latitude_, self_longitude_};
+    
     as2_msgs::msg::Alert alert;
     for (std::vector<std::vector<std::array<float,2>>>::iterator ptr = polygons.begin(); ptr < polygons.end(); ptr++){
       int index = ptr - polygons.begin();
       std::vector<bool>::iterator ptr_in = geofences_in.begin() + index;
       std::vector<int>::iterator ptr_id = ids.begin() + index;
-      if (!geofence::isIn<float>((*ptr), point)){
+      if (!geofence::isIn<float>((*ptr), point_)){
         std::vector<int>::iterator ptr_alert = alerts.begin() + index;
         alert.alert = (*ptr_alert);
         alert.id = (*ptr_id);
@@ -76,10 +91,24 @@ void Geofencing::run()
 // TODO: METHODS
 void Geofencing::setupNode()
 {
-  gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
-      this->generate_global_name(as2_names::topics::sensor_measurements::gps),
-      as2_names::topics::sensor_measurements::qos,
-      std::bind(&Geofencing::gpsCallback, this, std::placeholders::_1));
+
+  RCLCPP_INFO(this->get_logger(), "Geofence in mode: %s" , mode_.c_str());
+
+  if (mode_ == "gps"){
+    
+    gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
+        this->generate_global_name(as2_names::topics::sensor_measurements::gps),
+        as2_names::topics::sensor_measurements::qos,
+        std::bind(&Geofencing::gpsCallback, this, std::placeholders::_1));
+  }
+
+  else if (mode_ == "cartesian"){
+
+    pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        this->generate_global_name(as2_names::topics::self_localization::pose),
+        as2_names::topics::self_localization::qos,
+        std::bind(&Geofencing::poseCallback, this, std::placeholders::_1));  
+  }
 
   set_geofence_srv_ = this->create_service<as2_msgs::srv::SetGeofence>(
       this->generate_global_name("set_geofence"),
@@ -134,6 +163,14 @@ void Geofencing::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg)
   // odom2baselink_tf_.header.stamp = timestamp;
   self_latitude_ = _msg->latitude;
   self_longitude_ = _msg->longitude;
+
+  start_run_ = true;
+}
+
+void Geofencing::poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg)
+{
+  self_x_ = _msg->pose.position.x;
+  self_y_ = _msg->pose.position.y;
 
   start_run_ = true;
 }
@@ -204,6 +241,8 @@ CallbackReturn Geofencing::on_configure(const rclcpp_lifecycle::State &_state)
 {
   // Set subscriptions, publishers, services, actions, etc. here.
   this->get_parameter("config_file", config_path_);
+  this->get_parameter("mode", mode_);
+
   setupNode();
 
   return CallbackReturn::SUCCESS;

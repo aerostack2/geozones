@@ -21,7 +21,6 @@ set(PROJECT_DEPENDENCIES
   sensor_msgs
   nav_msgs
   geometry_msgs
-  GeographicLib
   geographic_msgs
 )
 

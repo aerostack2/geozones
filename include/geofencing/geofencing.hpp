@@ -1,6 +1,6 @@
 /*!*******************************************************************************************
  *  \file       geofencing.hpp
- *  \brief      Geofencing for AeroStack2
+ *  \brief      Geofencing for Aerostack2
  *  \authors    Javier Melero Deza
  *
  *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
@@ -44,19 +44,20 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-
 #include <string>
+
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include "as2_core/frame_utils/frame_utils.hpp"
-#include "as2_core/names/topics.hpp"
-#include "as2_core/node.hpp"
-#include "as2_core/tf_utils.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "geometry_msgs/msg/point32.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+
+#include "as2_core/names/services.hpp"
+#include "as2_core/names/topics.hpp"
+#include "as2_core/node.hpp"
 #include "as2_msgs/srv/set_geofence.hpp"
 #include "as2_msgs/srv/get_geofence.hpp"
 #include "as2_msgs/msg/alert.hpp"
-#include "geometry_msgs/msg/point32.hpp"
 
 class Geofencing : public as2::Node
 {
@@ -71,26 +72,35 @@ public:
 private:
 
   bool start_run_;
+
   float self_latitude_;
   float self_longitude_;
+  float self_x_;
+  float self_y_;
   int max_priority;
   bool geofence_detected;
+
   std::string config_path_;
+  std::string mode_;
   
   std::vector<std::vector<std::array<float,2>>> polygons;
+  std::array<float,2> point_;
   std::vector<int>ids;
   std::vector<int>alerts;
   std::vector<bool>geofences_in;
   
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Publisher<as2_msgs::msg::Alert>::SharedPtr alert_pub_;
   
   rclcpp::Service<as2_msgs::srv::SetGeofence>::SharedPtr set_geofence_srv_;
   rclcpp::Service<as2_msgs::srv::GetGeofence>::SharedPtr get_geofence_srv_;
   
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg);
+  void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg);
   void setGeofenceCb(const std::shared_ptr<as2_msgs::srv::SetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::SetGeofence::Response> response);
   void getGeofenceCb(const std::shared_ptr<as2_msgs::srv::GetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::GetGeofence::Response> response);
+  void translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon, const std::array<float,2> point);
 
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
