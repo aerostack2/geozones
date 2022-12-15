@@ -69,7 +69,9 @@ void Geofencing::run()
       int index = ptr - polygons.begin();
       std::vector<bool>::iterator ptr_in = geofences_in.begin() + index;
       std::vector<int>::iterator ptr_id = ids.begin() + index;
-      if (!geofence::isIn<float>((*ptr), point_)){
+      auto [point, polygon] = translatePolygonWithPoint((*ptr), point_);
+
+      if (!geofence::isIn<float>(polygon, point)){
         std::vector<int>::iterator ptr_alert = alerts.begin() + index;
         alert.alert = (*ptr_alert);
         alert.id = (*ptr_id);
@@ -229,6 +231,43 @@ void Geofencing::getGeofenceCb(const std::shared_ptr<as2_msgs::srv::GetGeofence:
       response->geofences = geofence_list;
       response->success = true;
   }
+}
+
+std::tuple<std::array<float,2>, std::vector<std::array<float,2>>> Geofencing::translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon, const std::array<float,2> point){
+
+  float most_negative_number_x = 0.0;
+  float most_negative_number_y = 0.0;
+
+  for (std::vector<std::array<float,2>>::const_iterator ptr = polygon.begin(); ptr < polygon.end(); ptr++){
+    if ((*ptr)[0] < most_negative_number_x){
+      most_negative_number_x = (*ptr)[0];
+    }
+    if ((*ptr)[1] < most_negative_number_y){
+      most_negative_number_y = (*ptr)[1];
+    }
+  }
+
+  if (point[0] < most_negative_number_x){
+    most_negative_number_x = point[0];
+  }
+
+  if (point[1] < most_negative_number_y){
+    most_negative_number_y = point[1];
+  }
+
+  std::vector<std::array<float,2>> ret_polygon = polygon;
+  std::array<float,2> ret_point = point;
+
+  for (std::vector<std::array<float,2>>::iterator ptr = ret_polygon.begin(); ptr < ret_polygon.end(); ptr++){
+
+    (*ptr)[0] += fabsf(most_negative_number_x);
+    (*ptr)[1] += fabsf(most_negative_number_y);
+  }
+
+  ret_point[0] += fabsf(most_negative_number_x);
+  ret_point[1] += fabsf(most_negative_number_y);
+
+  return {ret_point, ret_polygon};
 }
 
 void Geofencing::cleanupNode(){

@@ -100,7 +100,7 @@ private:
   void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg);
   void setGeofenceCb(const std::shared_ptr<as2_msgs::srv::SetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::SetGeofence::Response> response);
   void getGeofenceCb(const std::shared_ptr<as2_msgs::srv::GetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::GetGeofence::Response> response);
-  void translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon, const std::array<float,2> point);
+  std::tuple<std::array<float,2>, std::vector<std::array<float,2>>> translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon, const std::array<float,2> point);
 
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 

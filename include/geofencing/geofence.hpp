@@ -127,16 +127,7 @@ inline bool isIn(std::vector<std::array<T,2>> &polygon, std::array<T,2> &p) {
 
       // The algorithms is based on W. Randolph Franklin's implementation that can be found here:
       // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
-      std::cout << "-----------------------------" << std::endl;
-      std::cout << std::to_string(polygon.at(i)[X]) << std::endl;
-      std::cout << std::to_string(polygon.at(i)[Y]) << std::endl;
-      std::cout << std::to_string(polygon.at(j)[X]) << std::endl;
-      std::cout << std::to_string(polygon.at(j)[Y]) << std::endl;
-      std::cout << std::to_string(p[X]) << std::endl;
-      std::cout << std::to_string(p[Y]) << std::endl;
-      std::cout << std::to_string((polygon.at(i)[Y] > p[Y])) << std::endl;
-      std::cout << std::to_string((polygon.at(j)[Y] > p[Y])) << std::endl;
-      std::cout << "-----------------------------" << std::endl;
+
       if ( ((polygon.at(i)[Y] > p[Y]) != (polygon.at(j)[Y] > p[Y])) &&
            (p[X] < (polygon.at(j)[X]-polygon.at(i)[X]) * (p[Y]-polygon.at(i)[Y]) / (polygon.at(j)[Y]-polygon.at(i)[Y]) + polygon.at(i)[X]) ) {
         inside = !inside;
