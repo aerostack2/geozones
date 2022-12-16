@@ -35,7 +35,7 @@
 #include <ostream>
 #include <iostream>
 
-namespace geofence {
+namespace Geofence {
 
 /**
  * @param a
@@ -131,7 +131,6 @@ inline bool isIn(std::vector<std::array<T,2>> &polygon, std::array<T,2> &p) {
       if ( ((polygon.at(i)[Y] > p[Y]) != (polygon.at(j)[Y] > p[Y])) &&
            (p[X] < (polygon.at(j)[X]-polygon.at(i)[X]) * (p[Y]-polygon.at(i)[Y]) / (polygon.at(j)[Y]-polygon.at(i)[Y]) + polygon.at(i)[X]) ) {
         inside = !inside;
-        std::cout << "se invierte" << std::endl;
       }
     }
   }

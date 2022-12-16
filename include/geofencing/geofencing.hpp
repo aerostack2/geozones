@@ -38,6 +38,7 @@
 #include "json.hpp"
 
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/qos.hpp>
 #include <algorithm>
 #include <iterator>
 #include <vector>
@@ -57,7 +58,7 @@
 #include "as2_core/node.hpp"
 #include "as2_msgs/srv/set_geofence.hpp"
 #include "as2_msgs/srv/get_geofence.hpp"
-#include "as2_msgs/msg/alert.hpp"
+#include "as2_msgs/msg/alert_event.hpp"
 
 class Geofencing : public as2::Node
 {
@@ -71,6 +72,14 @@ public:
 
 private:
 
+  struct geofence{             // Structure declaration
+    std::vector<std::array<float,2>> polygon; // polygons that define each geofence
+    int id; // id of geofence
+    int alert; // alert that generates
+    std::string type; // type of geofence: exclusion or inclusion
+    bool in; // if point is in the geofence
+  };      
+
   bool start_run_;
 
   float self_latitude_;
@@ -82,16 +91,12 @@ private:
 
   std::string config_path_;
   std::string mode_;
-  
-  std::vector<std::vector<std::array<float,2>>> polygons;
   std::array<float,2> point_;
-  std::vector<int>ids;
-  std::vector<int>alerts;
-  std::vector<bool>geofences_in;
+  std::vector<geofence> geofences;
   
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
-  rclcpp::Publisher<as2_msgs::msg::Alert>::SharedPtr alert_pub_;
+  rclcpp::Publisher<as2_msgs::msg::AlertEvent>::SharedPtr alert_pub_;
   
   rclcpp::Service<as2_msgs::srv::SetGeofence>::SharedPtr set_geofence_srv_;
   rclcpp::Service<as2_msgs::srv::GetGeofence>::SharedPtr get_geofence_srv_;
@@ -101,6 +106,9 @@ private:
   void setGeofenceCb(const std::shared_ptr<as2_msgs::srv::SetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::SetGeofence::Response> response);
   void getGeofenceCb(const std::shared_ptr<as2_msgs::srv::GetGeofence::Request> request, std::shared_ptr<as2_msgs::srv::GetGeofence::Response> response);
   std::tuple<std::array<float,2>, std::vector<std::array<float,2>>> translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon, const std::array<float,2> point);
+  void checkGeofences();
+  bool checkValidity(int size, int id, std::string type);
+  bool findGeofenceId(int id);
 
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 

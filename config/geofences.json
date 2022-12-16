@@ -2,6 +2,7 @@
 	"geofences": [{
 		"id": 1,
 		"alert": 1,
+		"type": "exclusion",
 		"polygon": [
 			[52.172046, 4.416790],
 			[52.172046, 4.415912],
