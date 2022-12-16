@@ -52,6 +52,7 @@
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 #include "geometry_msgs/msg/point32.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "std_msgs/msg/int8.hpp"
 
 #include "as2_core/names/services.hpp"
 #include "as2_core/names/topics.hpp"

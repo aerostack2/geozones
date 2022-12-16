@@ -123,6 +123,7 @@ void Geofencing::loadGeofences(const std::string path){
       }
       geofence_to_load.id = json_geofence["id"];
       geofence_to_load.alert = json_geofence["alert"];
+      geofence_to_load.type = json_geofence["type"];
       geofence_to_load.in = false;
       geofence_to_load.polygon = polygon;
       geofences.push_back(geofence_to_load);
@@ -248,14 +249,20 @@ void Geofencing::checkGeofences(){
 
     if (!Geofence::isIn<float>(polygon, point)){
       alert.alert = ptr->alert;
-      //alert.id = (*ptr_id);
-      alert_pub_->publish(alert);
+
+      if (ptr->type == "exclusion"){
+        alert_pub_->publish(alert);
+      }
       if (ptr->in == true){
         ptr->in = false;
         RCLCPP_INFO(this->get_logger(), "Exited geofence: %s" , std::to_string(ptr->id).c_str());
       }
     }
     else{
+      if (ptr->type == "inclusion"){
+        alert.alert = ptr->alert;
+        alert_pub_->publish(alert);
+      }
       if (ptr->in==false){
         ptr->in = true;
         RCLCPP_INFO(this->get_logger(), "Entered Geofence: %s" , std::to_string(ptr->id).c_str());
