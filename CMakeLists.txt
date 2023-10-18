@@ -12,6 +12,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
 # find dependencies
 set(PROJECT_DEPENDENCIES
   ament_cmake
@@ -19,14 +22,41 @@ set(PROJECT_DEPENDENCIES
   as2_core
   as2_msgs
   sensor_msgs
+  builtin_interfaces
   nav_msgs
   geometry_msgs
   geographic_msgs
 )
 
+set(MESSAGE_DEPENDENCIES
+  as2_msgs
+  std_msgs
+  geometry_msgs
+  builtin_interfaces
+)
+
+set(SERVICE_DEPENDENCIES
+  builtin_interfaces
+)
+
 foreach(DEPENDENCY ${PROJECT_DEPENDENCIES})
   find_package(${DEPENDENCY} REQUIRED)
 endforeach()
+
+set(SRVS_FILES
+"srv/GetGeofence.srv"
+"srv/SetGeofence.srv"
+)
+
+set(MSGS_FILES
+"msg/Geofence.msg"
+)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${MSGS_FILES}
+  ${SRVS_FILES}
+  DEPENDENCIES ${MESSAGE_DEPENDENCIES}
+)
 
 include_directories(
   include
@@ -45,6 +75,10 @@ set(SOURCE_CPP_FILES
 add_executable(${PROJECT_NAME}_node src/geofencing_node.cpp ${SOURCE_CPP_FILES})
 ament_target_dependencies(${PROJECT_NAME}_node ${PROJECT_DEPENDENCIES})
 
+rosidl_target_interfaces(${PROJECT_NAME}_node
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME})
@@ -59,3 +93,4 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
+
