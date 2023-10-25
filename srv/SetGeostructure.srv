@@ -1,0 +1,8 @@
+# SERVICE TYPE: SetGeostructure
+# ------------------------------------------------------------------------------
+# This service creates a geoStructure (lat, lon, alt) to set in geofencing node
+
+geofencing/Geostructure geostructure  # geofence to set
+---
+bool success                # whether the geoStructure has been set or not
+# ------------------------------------------------------------------------------

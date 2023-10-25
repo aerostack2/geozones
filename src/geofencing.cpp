@@ -46,7 +46,7 @@ void Geofencing::run() {
     return;
   }
 
-  if (geofences.size() == 0) {
+  if (geostructures_.size() == 0) {
     return;
   }
 
@@ -56,8 +56,6 @@ void Geofencing::run() {
 }
 // TODO: METHODS
 void Geofencing::setupNode() {
-
-  RCLCPP_INFO(this->get_logger(), "Geofence in mode: %s", mode_.c_str());
 
   // if (mode_ == "gps") {
 
@@ -74,15 +72,17 @@ void Geofencing::setupNode() {
       as2_names::topics::self_localization::qos,
       std::bind(&Geofencing::poseCallback, this, std::placeholders::_1));
 
-  set_geofence_srv_ = this->create_service<geofencing::srv::SetGeofence>(
-      this->generate_local_name("set_geofence"),
-      std::bind(&Geofencing::setGeofenceCb, this, std::placeholders::_1,
-                std::placeholders::_2));
+  set_geostructure_srv_ =
+      this->create_service<geofencing::srv::SetGeostructure>(
+          this->generate_local_name("set_geostructure"),
+          std::bind(&Geofencing::setGeoStructureCb, this, std::placeholders::_1,
+                    std::placeholders::_2));
 
-  get_geofence_srv_ = this->create_service<geofencing::srv::GetGeofence>(
-      this->generate_local_name("get_geofences"),
-      std::bind(&Geofencing::getGeofenceCb, this, std::placeholders::_1,
-                std::placeholders::_2));
+  get_geostructure_srv_ =
+      this->create_service<geofencing::srv::GetGeostructure>(
+          this->generate_local_name("get_geostructure"),
+          std::bind(&Geofencing::getGeoStructureCb, this, std::placeholders::_1,
+                    std::placeholders::_2));
 
   alert_pub_ = this->create_publisher<as2_msgs::msg::AlertEvent>(
       this->generate_global_name("alert_event"), 1);
@@ -99,38 +99,47 @@ void Geofencing::loadGeofences(const std::string path) {
   buffer << fJson.rdbuf();
   auto json = nlohmann::json::parse(buffer.str());
 
-  for (auto json_geofence : json["geofences"]) {
-    geofence geofence_to_load;
-    if (!checkValidity(std::size(json_geofence["polygon"]), json_geofence["id"],
-                       json_geofence["type"])) {
+  for (auto json_geostructure : json["geostructures"]) {
+    geoStructure geostructure_to_load;
+    if (!checkValidity(std::size(json_geostructure["polygon"]),
+                       json_geostructure["id"], json_geostructure["type"],
+                       json_geostructure["data_type"])) {
       continue;
     } else {
-      geofence_to_load.data_type = json_geofence["data_type"];
+      geostructure_to_load.data_type = json_geostructure["data_type"];
       std::vector<std::array<double, 2>> polygon;
-      if (geofence_to_load.data_type == "gps") {
+      if (geostructure_to_load.data_type == "gps") {
         if (!origin_set_) {
           setupGPS();
           origin_set_ = true;
         }
-        for (std::array<double, 2> point : json_geofence["polygon"]) {
+        for (std::array<double, 2> point : json_geostructure["polygon"]) {
           double z;
           gps_handler->LatLon2Local(point[0], point[1], 0.0, point[0], point[1],
                                     z);
           polygon.push_back(point);
         }
       } else {
-        for (std::array<double, 2> point : json_geofence["polygon"]) {
+        for (std::array<double, 2> point : json_geostructure["polygon"]) {
           polygon.push_back(point);
         }
       }
 
-      geofence_to_load.id = json_geofence["id"];
-      geofence_to_load.alert = json_geofence["alert"];
+      geostructure_to_load.id = json_geostructure["id"];
+      geostructure_to_load.alert = json_geostructure["alert"];
 
-      geofence_to_load.type = json_geofence["type"];
-      geofence_to_load.in = false;
-      geofence_to_load.polygon = polygon;
-      geofences.push_back(geofence_to_load);
+      geostructure_to_load.type = json_geostructure["type"];
+      geostructure_to_load.data_type = json_geostructure["data_type"];
+      geostructure_to_load.z_up =
+          json.contains("z_up") ? static_cast<float>(json_geostructure["z_up"])
+                                : 100000.0;
+      geostructure_to_load.z_down =
+          json.contains("z_down")
+              ? static_cast<float>(json_geostructure["z_down"])
+              : -100000.0;
+      geostructure_to_load.in = false;
+      geostructure_to_load.polygon = polygon;
+      geostructures_.push_back(geostructure_to_load);
 
       RCLCPP_INFO(this->get_logger(),
                   "Geofence Succesfully loaded from JSON file");
@@ -148,48 +157,49 @@ void Geofencing::poseCallback(
   start_run_ = true;
 }
 
-void Geofencing::setGeofenceCb(
-    const std::shared_ptr<geofencing::srv::SetGeofence::Request> request,
-    std::shared_ptr<geofencing::srv::SetGeofence::Response> response) {
-  if (!checkValidity(std::size(request->geofence.polygon.points),
-                     request->geofence.id, request->geofence.type)) {
+void Geofencing::setGeoStructureCb(
+    const std::shared_ptr<geofencing::srv::SetGeostructure::Request> request,
+    std::shared_ptr<geofencing::srv::SetGeostructure::Response> response) {
+  if (!checkValidity(std::size(request->geostructure.polygon.points),
+                     request->geostructure.id, request->geostructure.type,
+                     request->geostructure.data_type)) {
     response->success = false;
   }
 
   else {
-    geofence geofence_to_load;
+    geoStructure geostructure_to_load;
     std::vector<std::array<double, 2>> polygon;
-    for (int i = 0; i < std::size(request->geofence.polygon.points); i++) {
-      std::array<double, 2> point{request->geofence.polygon.points[i].x,
-                                  request->geofence.polygon.points[i].y};
+    for (int i = 0; i < std::size(request->geostructure.polygon.points); i++) {
+      std::array<double, 2> point{request->geostructure.polygon.points[i].x,
+                                  request->geostructure.polygon.points[i].y};
       polygon.push_back(point);
     }
-    geofence_to_load.id = request->geofence.id;
-    geofence_to_load.alert = request->geofence.alert;
-    geofence_to_load.type = request->geofence.type;
-    geofence_to_load.data_type = request->geofence.data_type;
-    geofence_to_load.z_up = request->geofence.z_up;
-    geofence_to_load.z_down = request->geofence.z_down;
-    geofence_to_load.in = false;
-    geofence_to_load.polygon = polygon;
-    geofences.push_back(geofence_to_load);
+    geostructure_to_load.id = request->geostructure.id;
+    geostructure_to_load.alert = request->geostructure.alert;
+    geostructure_to_load.type = request->geostructure.type;
+    geostructure_to_load.data_type = request->geostructure.data_type;
+    geostructure_to_load.z_up = request->geostructure.z_up;
+    geostructure_to_load.z_down = request->geostructure.z_down;
+    geostructure_to_load.in = false;
+    geostructure_to_load.polygon = polygon;
+    geostructures_.push_back(geostructure_to_load);
 
     RCLCPP_INFO(this->get_logger(), "Geofence added.");
     response->success = true;
   }
 }
 
-void Geofencing::getGeofenceCb(
-    const std::shared_ptr<geofencing::srv::GetGeofence::Request> request,
-    std::shared_ptr<geofencing::srv::GetGeofence::Response> response) {
-  if (geofences.size() == 0) {
+void Geofencing::getGeoStructureCb(
+    const std::shared_ptr<geofencing::srv::GetGeostructure::Request> request,
+    std::shared_ptr<geofencing::srv::GetGeostructure::Response> response) {
+  if (geostructures_.size() == 0) {
     RCLCPP_WARN(this->get_logger(), "No geofence has been set yet.");
     response->success = false;
   } else {
-    std::vector<geofencing::msg::Geofence> geofence_list;
-    for (std::vector<geofence>::iterator ptr = geofences.begin();
-         ptr < geofences.end(); ptr++) {
-      geofencing::msg::Geofence geofence;
+    std::vector<geofencing::msg::Geostructure> geofence_list;
+    for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
+         ptr < geostructures_.end(); ptr++) {
+      geofencing::msg::Geostructure geostructure;
       for (std::vector<std::array<double, 2>>::iterator ptr2 =
                ptr->polygon.begin();
            ptr2 < ptr->polygon.end(); ptr2++) {
@@ -203,17 +213,17 @@ void Geofencing::getGeofenceCb(
           point.y = (*ptr2)[1];
         }
 
-        geofence.polygon.points.push_back(point);
+        geostructure.polygon.points.push_back(point);
       }
-      geofence.z_up = ptr->z_up;
-      geofence.z_down = ptr->z_down;
-      geofence.type = ptr->type;
-      geofence.data_type = ptr->data_type;
-      geofence.alert = ptr->alert;
-      geofence.id = ptr->id;
-      geofence_list.push_back(geofence);
+      geostructure.z_up = ptr->z_up != ptr->z_up;
+      geostructure.z_down = ptr->z_down != ptr->z_down;
+      geostructure.type = ptr->type;
+      geostructure.data_type = ptr->data_type;
+      geostructure.alert = ptr->alert;
+      geostructure.id = ptr->id;
+      geofence_list.push_back(geostructure);
     }
-    response->geofences = geofence_list;
+    response->geostructure_list = geofence_list;
     response->success = true;
   }
 }
@@ -221,8 +231,8 @@ void Geofencing::getGeofenceCb(
 void Geofencing::checkGeofences() {
 
   as2_msgs::msg::AlertEvent alert;
-  for (std::vector<geofence>::iterator ptr = geofences.begin();
-       ptr < geofences.end(); ptr++) {
+  for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
+       ptr < geostructures_.end(); ptr++) {
 
     // auto [point, polygon] = translatePolygonWithPoint(ptr->polygon, point_);
 
@@ -235,7 +245,7 @@ void Geofencing::checkGeofences() {
       }
       if (ptr->in == true) {
         ptr->in = false;
-        RCLCPP_INFO(this->get_logger(), "Exited geofence: %s",
+        RCLCPP_INFO(this->get_logger(), "Exited Geocage: %s",
                     std::to_string(ptr->id).c_str());
       }
     } else {
@@ -252,10 +262,10 @@ void Geofencing::checkGeofences() {
   }
 }
 
-bool Geofencing::findGeofenceId(int id) {
+bool Geofencing::findGeostructureId(int id) {
 
-  for (std::vector<geofence>::iterator ptr = geofences.begin();
-       ptr < geofences.end(); ptr++) {
+  for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
+       ptr < geostructures_.end(); ptr++) {
     if (id == ptr->id) {
       return false;
     }
@@ -263,16 +273,23 @@ bool Geofencing::findGeofenceId(int id) {
   return true;
 }
 
-bool Geofencing::checkValidity(int size, int id, std::string type) {
+bool Geofencing::checkValidity(int size, int id, std::string type,
+                               std::string data_type) {
 
-  if (!findGeofenceId(id)) {
+  if (!findGeostructureId(id)) {
     RCLCPP_WARN(this->get_logger(), "Id already exist.");
     return false;
   }
 
-  if (type != "geofence" && type != "geocage") {
+  if (type != "geofence" || type != "geocage") {
     RCLCPP_WARN(this->get_logger(),
                 "Invalid type. Allowed values: 'geofence', 'geocage'.");
+    return false;
+  }
+
+  if (data_type != "gps" || data_type != "cartesian") {
+    RCLCPP_WARN(this->get_logger(),
+                "Invalid data type. Allowed values: 'gps', 'cartesian'.");
     return false;
   }
 

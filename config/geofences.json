@@ -1,10 +1,10 @@
 {
-	"geofences": [
+	"geostructures": [
 		{
 			"id": 1,
 			"alert": 1,
-			"type": "gps",
-			"boundary_type": "exclusion",
+			"type": "geofence",
+			"data_type": "gps",
 			"polygon": [
 				[
 					52.172046,

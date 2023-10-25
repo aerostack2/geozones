@@ -62,9 +62,9 @@
 
 #include "as2_core/utils/gps_utils.hpp"
 #include "as2_msgs/srv/get_origin.hpp"
-#include "geofencing/msg/geofence.hpp"
-#include "geofencing/srv/get_geofence.hpp"
-#include "geofencing/srv/set_geofence.hpp"
+#include "geofencing/msg/geostructure.hpp"
+#include "geofencing/srv/get_geostructure.hpp"
+#include "geofencing/srv/set_geostructure.hpp"
 
 class Geofencing : public as2::Node {
 public:
@@ -76,7 +76,8 @@ public:
   void loadGeofences(const std::string path);
 
 private:
-  struct geofence { // Structure declaration
+  struct geoStructure { // Structure declaration
+    std::string type;   // geofence or geocage
     std::vector<std::array<double, 2>>
         polygon; // polygons that define each geofence !!order matters!!
     float z_up;
@@ -84,7 +85,6 @@ private:
     int id;                // id of geofence
     int alert;             // alert that generates
     std::string data_type; // type of geofence: cartesian or gps
-    std::string type;      // type of boundaries: geofence or geocage
     bool in;               // if point is in the geofence
   };
 
@@ -103,14 +103,16 @@ private:
   std::string config_path_;
   std::string mode_;
   std::array<double, 2> point_;
-  std::vector<geofence> geofences;
+  std::vector<geoStructure> geostructures_;
 
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Publisher<as2_msgs::msg::AlertEvent>::SharedPtr alert_pub_;
 
-  rclcpp::Service<geofencing::srv::SetGeofence>::SharedPtr set_geofence_srv_;
-  rclcpp::Service<geofencing::srv::GetGeofence>::SharedPtr get_geofence_srv_;
+  rclcpp::Service<geofencing::srv::SetGeostructure>::SharedPtr
+      set_geostructure_srv_;
+  rclcpp::Service<geofencing::srv::GetGeostructure>::SharedPtr
+      get_geostructure_srv_;
 
   geographic_msgs::msg::GeoPoint::UniquePtr origin_;
   rclcpp::Client<as2_msgs::srv::GetOrigin>::SharedPtr get_origin_srv_;
@@ -118,18 +120,19 @@ private:
 
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg);
   void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg);
-  void setGeofenceCb(
-      const std::shared_ptr<geofencing::srv::SetGeofence::Request> request,
-      std::shared_ptr<geofencing::srv::SetGeofence::Response> response);
-  void getGeofenceCb(
-      const std::shared_ptr<geofencing::srv::GetGeofence::Request> request,
-      std::shared_ptr<geofencing::srv::GetGeofence::Response> response);
+  void setGeoStructureCb(
+      const std::shared_ptr<geofencing::srv::SetGeostructure::Request> request,
+      std::shared_ptr<geofencing::srv::SetGeostructure::Response> response);
+  void getGeoStructureCb(
+      const std::shared_ptr<geofencing::srv::GetGeostructure::Request> request,
+      std::shared_ptr<geofencing::srv::GetGeostructure::Response> response);
+
   // std::tuple<std::array<float,2>, std::vector<std::array<float,2>>>
   // translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon,
   // const std::array<float,2> point);
   void checkGeofences();
-  bool checkValidity(int size, int id, std::string type);
-  bool findGeofenceId(int id);
+  bool checkValidity(int size, int id, std::string type, std::string data_type);
+  bool findGeostructureId(int id);
   void setupGPS();
 
   using CallbackReturn =

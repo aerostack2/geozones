@@ -44,12 +44,12 @@ foreach(DEPENDENCY ${PROJECT_DEPENDENCIES})
 endforeach()
 
 set(SRVS_FILES
-"srv/GetGeofence.srv"
-"srv/SetGeofence.srv"
+"srv/GetGeostructure.srv"
+"srv/SetGeostructure.srv"
 )
 
 set(MSGS_FILES
-"msg/Geofence.msg"
+"msg/Geostructure.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
