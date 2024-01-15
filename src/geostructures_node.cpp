@@ -1,5 +1,5 @@
 /*!*******************************************************************************************
- *  \file       geofencing.hpp
+ *  \file       geostructures.hpp
  *  \brief      Node for geofencing
  *  \authors    Javier Melero Deza
  *
@@ -32,15 +32,15 @@
  ********************************************************************************/
 
 #include "as2_core/core_functions.hpp"
-#include "geofencing.hpp"
-#include "geofence.hpp"
+#include "geostructures.hpp"
+#include "pnpoly.hpp"
 
-int main(int argc, char *argv[])
+int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<Geofencing>();
+  auto node = std::make_shared<Geostructures>();
   node->preset_loop_frequency(10); // Node frequency for run and callbacks
-  as2::spinLoop(node, std::bind(&Geofencing::run, node));
+  as2::spinLoop(node, std::bind(&Geostructures::run, node));
   rclcpp::shutdown();
   return 0;
 }

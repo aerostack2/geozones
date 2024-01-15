@@ -1,9 +1,58 @@
-# geofencing
+# Geostructures
 
-Geofencing node for Aerostack2.
+Geostructures node for Aerostack2.
 
 Params:
+- config_file: Polygons that define geofences are defined here. (IMPORTANT) Remember that the order in which points are given defines how the polygon is built, this means that n point will be conected to n+1 point and so on. Last point will be connected to the first point.
+Config file parameters:
 
-- config_file (path): Polygons that define geofences are defined here. (IMPORTANT) Remember that the order in which points are given defines how the polygon is built, this means that n point will be conected to n+1 point and so on. Last point will be connected to the first point. 
+    - **id** (int): geo-estructure id 
+    - **alert** (int): generated alert
+    - **type** (string): geofence or geocage. Geofence would generate alert on entering the area, geocage would generate alert on exiting the area. 
+    - **data_type** (string): gps or cartesian. 
+    - **polygon** (list(2DPoint)): List of 2D points that forms the polygon. Should at least be 3.
+    - **z_up** (float): up limit, always in cartesian.
+    - **z_down** (float): down limit, always in cartesian.
 
-- mode (gps, cartesian): Defines whether geofencing is applied to cartessian coordinates or gps coordinates, in both cases, input position will come from its respective data types.
+Example config file:
+
+    {
+        "geostructures": [
+            {
+                "id": 1,
+                "alert": 1,
+                "type": "geofence",
+                "data_type": "gps",
+                "polygon": [
+                    [
+                        52.172046,
+                        4.416790
+                    ],
+                    [
+                        52.172046,
+                        4.415912
+                    ],
+                    [
+                        52.171506,
+                        4.415912
+                    ],
+                    [
+                        52.171506,
+                        4.416789
+                    ]
+                ],
+                "z_up": 100.0,
+                "z_down": 90.0
+            }
+        ]
+    }
+
+- Interfaces:
+
+    Available Services:
+
+    - ```/set_geoestructure```: Set a geoestructure vía message.
+    - ```/get_geoestructure```: Get a list of all geoestructures available
+
+    Published topics:
+    - ```/alert_event```: Publish the defined alert message when a geoestructure event is triggered.

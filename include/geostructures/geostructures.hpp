@@ -1,6 +1,6 @@
 /*!*******************************************************************************************
- *  \file       geofencing.hpp
- *  \brief      Geofencing for Aerostack2
+ *  \file       geostructures.hpp
+ *  \brief      Geostructures for Aerostack2
  *  \authors    Javier Melero Deza
  *
  *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
@@ -31,10 +31,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#ifndef GEOFENCING_HPP_
-#define GEOFENCING_HPP_
+#ifndef GEOSTRUCTURES_HPP_
+#define GEOSTRUCTURES_HPP_
 
-#include "geofence.hpp"
+#include "pnpoly.hpp"
 #include "json.hpp"
 
 #include <algorithm>
@@ -62,29 +62,31 @@
 
 #include "as2_core/utils/gps_utils.hpp"
 #include "as2_msgs/srv/get_origin.hpp"
-#include "geofencing/msg/geostructure.hpp"
-#include "geofencing/srv/get_geostructure.hpp"
-#include "geofencing/srv/set_geostructure.hpp"
+#include "geostructures/msg/geostructure.hpp"
+#include "geostructures/srv/get_geostructure.hpp"
+#include "geostructures/srv/set_geostructure.hpp"
 
-class Geofencing : public as2::Node {
+class Geostructures : public as2::Node
+{
 public:
-  Geofencing();
+  Geostructures();
 
   void setupNode();
   void cleanupNode();
   void run();
-  void loadGeofences(const std::string path);
+  void loadGeostructures(const std::string path);
 
 private:
-  struct geoStructure { // Structure declaration
+  struct geoStructure   // Structure declaration
+  {
     std::string type;   // geofence or geocage
     std::vector<std::array<double, 2>>
-        polygon; // polygons that define each geofence !!order matters!!
+    polygon;     // polygons that define each geostructure !!order matters!!
     float z_up;
     float z_down;
-    int id;                // id of geofence
+    int id;                // id of geostructure
     int alert;             // alert that generates
-    std::string data_type; // type of geofence: cartesian or gps
+    std::string data_type; // type of geostructure: cartesian or gps
     bool in;               // if point is in the geofence
   };
 
@@ -109,10 +111,10 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Publisher<as2_msgs::msg::AlertEvent>::SharedPtr alert_pub_;
 
-  rclcpp::Service<geofencing::srv::SetGeostructure>::SharedPtr
-      set_geostructure_srv_;
-  rclcpp::Service<geofencing::srv::GetGeostructure>::SharedPtr
-      get_geostructure_srv_;
+  rclcpp::Service<geostructures::srv::SetGeostructure>::SharedPtr
+    set_geostructure_srv_;
+  rclcpp::Service<geostructures::srv::GetGeostructure>::SharedPtr
+    get_geostructure_srv_;
 
   geographic_msgs::msg::GeoPoint::UniquePtr origin_;
   rclcpp::Client<as2_msgs::srv::GetOrigin>::SharedPtr get_origin_srv_;
@@ -121,22 +123,19 @@ private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg);
   void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg);
   void setGeoStructureCb(
-      const std::shared_ptr<geofencing::srv::SetGeostructure::Request> request,
-      std::shared_ptr<geofencing::srv::SetGeostructure::Response> response);
+    const std::shared_ptr<geostructures::srv::SetGeostructure::Request> request,
+    std::shared_ptr<geostructures::srv::SetGeostructure::Response> response);
   void getGeoStructureCb(
-      const std::shared_ptr<geofencing::srv::GetGeostructure::Request> request,
-      std::shared_ptr<geofencing::srv::GetGeostructure::Response> response);
+    const std::shared_ptr<geostructures::srv::GetGeostructure::Request> request,
+    std::shared_ptr<geostructures::srv::GetGeostructure::Response> response);
 
-  // std::tuple<std::array<float,2>, std::vector<std::array<float,2>>>
-  // translatePolygonWithPoint(const std::vector<std::array<float,2>> polygon,
-  // const std::array<float,2> point);
-  void checkGeofences();
+  void checkGeostructures();
   bool checkValidity(int size, int id, std::string type, std::string data_type);
   bool findGeostructureId(int id);
   void setupGPS();
 
   using CallbackReturn =
-      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State &) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State &) override;

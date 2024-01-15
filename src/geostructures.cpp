@@ -1,6 +1,6 @@
 /*!*******************************************************************************************
- *  \file       geofencing.cpp
- *  \brief      Geofencing for AeroStack2
+ *  \file       geostructures.cpp
+ *  \brief      Geostructures for AeroStack2
  *  \authors    Javier Melero Deza
  *
  *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
@@ -31,15 +31,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include "geofencing.hpp"
+#include "geostructures.hpp"
 
-Geofencing::Geofencing() : as2::Node("geofencing") {
-  this->declare_parameter<std::string>("config_file",
-                                       "geofencing/geofences.json");
+Geostructures::Geostructures()
+: as2::Node("geostructures")
+{
+  this->declare_parameter<std::string>(
+    "config_file",
+    "geostructures/geofences.json");
 }
 
-void Geofencing::run() {
-
+void Geostructures::run()
+{
   point_ = {self_x_, self_y_};
 
   if (!start_run_) {
@@ -48,52 +51,40 @@ void Geofencing::run() {
 
   if (geostructures_.size() == 0) {
     return;
-  }
-
-  else {
-    checkGeofences();
+  } else {
+    checkGeostructures();
   }
 }
-// TODO: METHODS
-void Geofencing::setupNode() {
 
-  // if (mode_ == "gps") {
-
-  //   gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
-  //       this->generate_global_name(as2_names::topics::sensor_measurements::gps),
-  //       as2_names::topics::sensor_measurements::qos,
-  //       std::bind(&Geofencing::gpsCallback, this, std::placeholders::_1));
-  // }
-
-  // else if (mode_ == "cartesian") {
-
+void Geostructures::setupNode()
+{
   pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      this->generate_global_name(as2_names::topics::self_localization::pose),
-      as2_names::topics::self_localization::qos,
-      std::bind(&Geofencing::poseCallback, this, std::placeholders::_1));
+    this->generate_global_name(as2_names::topics::self_localization::pose),
+    as2_names::topics::self_localization::qos,
+    std::bind(&Geostructures::poseCallback, this, std::placeholders::_1));
 
   set_geostructure_srv_ =
-      this->create_service<geofencing::srv::SetGeostructure>(
-          this->generate_local_name("set_geostructure"),
-          std::bind(&Geofencing::setGeoStructureCb, this, std::placeholders::_1,
-                    std::placeholders::_2));
+    this->create_service<geostructures::srv::SetGeostructure>(
+    this->generate_local_name("set_geostructure"),
+    std::bind(
+      &Geostructures::setGeoStructureCb, this, std::placeholders::_1,
+      std::placeholders::_2));
 
   get_geostructure_srv_ =
-      this->create_service<geofencing::srv::GetGeostructure>(
-          this->generate_local_name("get_geostructure"),
-          std::bind(&Geofencing::getGeoStructureCb, this, std::placeholders::_1,
-                    std::placeholders::_2));
+    this->create_service<geostructures::srv::GetGeostructure>(
+    this->generate_local_name("get_geostructure"),
+    std::bind(
+      &Geostructures::getGeoStructureCb, this, std::placeholders::_1,
+      std::placeholders::_2));
 
   alert_pub_ = this->create_publisher<as2_msgs::msg::AlertEvent>(
-      this->generate_global_name("alert_event"), 1);
+    this->generate_global_name("alert_event"), 1);
 
-  // std::string full_path_ =
-  // ament_index_cpp::get_package_share_directory("geofencing"); config_path_ =
-  // "config/geofences.json";
-  loadGeofences(config_path_);
+  loadGeostructures(config_path_);
 }
 
-void Geofencing::loadGeofences(const std::string path) {
+void Geostructures::loadGeostructures(const std::string path)
+{
   std::ifstream fJson(path);
   std::stringstream buffer;
   buffer << fJson.rdbuf();
@@ -101,9 +92,11 @@ void Geofencing::loadGeofences(const std::string path) {
 
   for (auto json_geostructure : json["geostructures"]) {
     geoStructure geostructure_to_load;
-    if (!checkValidity(std::size(json_geostructure["polygon"]),
-                       json_geostructure["id"], json_geostructure["type"],
-                       json_geostructure["data_type"])) {
+    if (!checkValidity(
+        std::size(json_geostructure["polygon"]),
+        json_geostructure["id"], json_geostructure["type"],
+        json_geostructure["data_type"]))
+    {
       continue;
     } else {
       geostructure_to_load.data_type = json_geostructure["data_type"];
@@ -115,8 +108,9 @@ void Geofencing::loadGeofences(const std::string path) {
         }
         for (std::array<double, 2> point : json_geostructure["polygon"]) {
           double z;
-          gps_handler->LatLon2Local(point[0], point[1], 0.0, point[0], point[1],
-                                    z);
+          gps_handler->LatLon2Local(
+            point[0], point[1], 0.0, point[0], point[1],
+            z);
           polygon.push_back(point);
         }
       } else {
@@ -131,25 +125,27 @@ void Geofencing::loadGeofences(const std::string path) {
       geostructure_to_load.type = json_geostructure["type"];
       geostructure_to_load.data_type = json_geostructure["data_type"];
       geostructure_to_load.z_up =
-          json.contains("z_up") ? static_cast<float>(json_geostructure["z_up"])
-                                : 100000.0;
+        json.contains("z_up") ? static_cast<float>(json_geostructure["z_up"]) :
+        100000.0;
       geostructure_to_load.z_down =
-          json.contains("z_down")
-              ? static_cast<float>(json_geostructure["z_down"])
-              : -100000.0;
+        json.contains("z_down") ?
+        static_cast<float>(json_geostructure["z_down"]) :
+        -100000.0;
       geostructure_to_load.in = false;
       geostructure_to_load.polygon = polygon;
       geostructures_.push_back(geostructure_to_load);
 
-      RCLCPP_INFO(this->get_logger(),
-                  "Geofence Succesfully loaded from JSON file");
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Geostructure Succesfully loaded from JSON file");
     }
   }
 }
 // CALLBACKS //
 
-void Geofencing::poseCallback(
-    const geometry_msgs::msg::PoseStamped::SharedPtr _msg) {
+void Geostructures::poseCallback(
+  const geometry_msgs::msg::PoseStamped::SharedPtr _msg)
+{
   self_x_ = _msg->pose.position.x;
   self_y_ = _msg->pose.position.y;
   self_z_ = _msg->pose.position.z;
@@ -157,21 +153,22 @@ void Geofencing::poseCallback(
   start_run_ = true;
 }
 
-void Geofencing::setGeoStructureCb(
-    const std::shared_ptr<geofencing::srv::SetGeostructure::Request> request,
-    std::shared_ptr<geofencing::srv::SetGeostructure::Response> response) {
-  if (!checkValidity(std::size(request->geostructure.polygon.points),
-                     request->geostructure.id, request->geostructure.type,
-                     request->geostructure.data_type)) {
+void Geostructures::setGeoStructureCb(
+  const std::shared_ptr<geostructures::srv::SetGeostructure::Request> request,
+  std::shared_ptr<geostructures::srv::SetGeostructure::Response> response)
+{
+  if (!checkValidity(
+      std::size(request->geostructure.polygon.points),
+      request->geostructure.id, request->geostructure.type,
+      request->geostructure.data_type))
+  {
     response->success = false;
-  }
-
-  else {
+  } else {
     geoStructure geostructure_to_load;
     std::vector<std::array<double, 2>> polygon;
     for (int i = 0; i < std::size(request->geostructure.polygon.points); i++) {
       std::array<double, 2> point{request->geostructure.polygon.points[i].x,
-                                  request->geostructure.polygon.points[i].y};
+        request->geostructure.polygon.points[i].y};
       polygon.push_back(point);
     }
     geostructure_to_load.id = request->geostructure.id;
@@ -184,25 +181,28 @@ void Geofencing::setGeoStructureCb(
     geostructure_to_load.polygon = polygon;
     geostructures_.push_back(geostructure_to_load);
 
-    RCLCPP_INFO(this->get_logger(), "Geofence added.");
+    RCLCPP_INFO(this->get_logger(), "Geostructure added.");
     response->success = true;
   }
 }
 
-void Geofencing::getGeoStructureCb(
-    const std::shared_ptr<geofencing::srv::GetGeostructure::Request> request,
-    std::shared_ptr<geofencing::srv::GetGeostructure::Response> response) {
+void Geostructures::getGeoStructureCb(
+  const std::shared_ptr<geostructures::srv::GetGeostructure::Request> request,
+  std::shared_ptr<geostructures::srv::GetGeostructure::Response> response)
+{
   if (geostructures_.size() == 0) {
-    RCLCPP_WARN(this->get_logger(), "No geofence has been set yet.");
+    RCLCPP_WARN(this->get_logger(), "No geostructure has been set yet.");
     response->success = false;
   } else {
-    std::vector<geofencing::msg::Geostructure> geofence_list;
+    std::vector<geostructures::msg::Geostructure> geofence_list;
     for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-         ptr < geostructures_.end(); ptr++) {
-      geofencing::msg::Geostructure geostructure;
+      ptr < geostructures_.end(); ptr++)
+    {
+      geostructures::msg::Geostructure geostructure;
       for (std::vector<std::array<double, 2>>::iterator ptr2 =
-               ptr->polygon.begin();
-           ptr2 < ptr->polygon.end(); ptr2++) {
+        ptr->polygon.begin();
+        ptr2 < ptr->polygon.end(); ptr2++)
+      {
         geometry_msgs::msg::Point32 point;
         double x, y, z;
         if (ptr->data_type == "gps") {
@@ -228,25 +228,27 @@ void Geofencing::getGeoStructureCb(
   }
 }
 
-void Geofencing::checkGeofences() {
+void Geostructures::checkGeostructures()
+{
 
   as2_msgs::msg::AlertEvent alert;
   for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-       ptr < geostructures_.end(); ptr++) {
-
+    ptr < geostructures_.end(); ptr++)
+  {
     // auto [point, polygon] = translatePolygonWithPoint(ptr->polygon, point_);
 
-    if (!Geofence::isIn<double>(ptr->polygon, point_) ||
-        self_z_ < ptr->z_down || self_z_ > ptr->z_up) {
-
+    if (!Pnpoly::isIn<double>(ptr->polygon, point_) ||
+      self_z_ < ptr->z_down || self_z_ > ptr->z_up)
+    {
       if (ptr->type == "geocage") {
         alert.alert = ptr->alert;
         alert_pub_->publish(alert);
       }
       if (ptr->in == true) {
         ptr->in = false;
-        RCLCPP_INFO(this->get_logger(), "Exited Geocage: %s",
-                    std::to_string(ptr->id).c_str());
+        RCLCPP_INFO(
+          this->get_logger(), "Exited area: %s",
+          std::to_string(ptr->id).c_str());
       }
     } else {
       if (ptr->type == "geofence") {
@@ -255,17 +257,19 @@ void Geofencing::checkGeofences() {
       }
       if (ptr->in == false) {
         ptr->in = true;
-        RCLCPP_INFO(this->get_logger(), "Entered Geofence: %s",
-                    std::to_string(ptr->id).c_str());
+        RCLCPP_INFO(
+          this->get_logger(), "Entered area: %s",
+          std::to_string(ptr->id).c_str());
       }
     }
   }
 }
 
-bool Geofencing::findGeostructureId(int id) {
-
+bool Geostructures::findGeostructureId(int id)
+{
   for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-       ptr < geostructures_.end(); ptr++) {
+    ptr < geostructures_.end(); ptr++)
+  {
     if (id == ptr->id) {
       return false;
     }
@@ -273,44 +277,51 @@ bool Geofencing::findGeostructureId(int id) {
   return true;
 }
 
-bool Geofencing::checkValidity(int size, int id, std::string type,
-                               std::string data_type) {
-
+bool Geostructures::checkValidity(
+  int size, int id, std::string type,
+  std::string data_type)
+{
   if (!findGeostructureId(id)) {
     RCLCPP_WARN(this->get_logger(), "Id already exist.");
     return false;
   }
 
-  if (type != "geofence" || type != "geocage") {
-    RCLCPP_WARN(this->get_logger(),
-                "Invalid type. Allowed values: 'geofence', 'geocage'.");
+  if (type != "geofence" && type != "geocage") {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Invalid type: %s. Allowed values: 'geofence', 'geocage'.",
+      type.c_str());
     return false;
   }
 
-  if (data_type != "gps" || data_type != "cartesian") {
-    RCLCPP_WARN(this->get_logger(),
-                "Invalid data type. Allowed values: 'gps', 'cartesian'.");
+  if (data_type != "gps" && data_type != "cartesian") {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Invalid data type: %s. Allowed values: 'gps', 'cartesian'.",
+      type.c_str());
     return false;
   }
 
   if (size < 3) {
-    RCLCPP_WARN(this->get_logger(),
-                "Invalid Geofence. Polygon must contain at least 3 points");
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Invalid Geofence. Polygon must contain at least 3 points");
     return false;
   }
 
   return true;
 }
 
-void Geofencing::setupGPS() {
+void Geostructures::setupGPS()
+{
   get_origin_srv_ = this->create_client<as2_msgs::srv::GetOrigin>(
-      as2_names::services::gps::get_origin); // Should be same origin for every
+    as2_names::services::gps::get_origin);   // Should be same origin for every
                                              // drone ?
-
   while (!get_origin_srv_->wait_for_service(std::chrono::seconds(3))) {
     if (!rclcpp::ok()) {
-      RCLCPP_ERROR(this->get_logger(),
-                   "Interrupted while waiting for the service. Exiting.");
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Interrupted while waiting for the service. Exiting.");
       break;
     }
     RCLCPP_INFO(this->get_logger(), "service not available, waiting again...");
@@ -321,12 +332,15 @@ void Geofencing::setupGPS() {
   request->structure_needs_at_least_one_member = 0;
 
   bool success = false; // TO-DO: Improve this
+
   // Wait for the result.
   while (!success) {
     auto result = get_origin_srv_->async_send_request(request);
-    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(),
-                                           result, std::chrono::seconds(1)) ==
-        rclcpp::FutureReturnCode::SUCCESS) {
+    if (rclcpp::spin_until_future_complete(
+        this->get_node_base_interface(),
+        result, std::chrono::seconds(1)) ==
+      rclcpp::FutureReturnCode::SUCCESS)
+    {
       // ;
 
     } else {
@@ -337,50 +351,57 @@ void Geofencing::setupGPS() {
     success = result_obj.success;
     if (success) {
       origin_ =
-          std::make_unique<geographic_msgs::msg::GeoPoint>(result_obj.origin);
-      RCLCPP_INFO(this->get_logger(), "Origin in: lat: %f, lon %f, alt: %f",
-                  origin_->latitude, origin_->longitude, origin_->altitude);
+        std::make_unique<geographic_msgs::msg::GeoPoint>(result_obj.origin);
+      RCLCPP_INFO(
+        this->get_logger(), "Origin in: lat: %f, lon %f, alt: %f",
+        origin_->latitude, origin_->longitude, origin_->altitude);
       gps_handler = std::make_unique<as2::gps::GpsHandler>(
-          origin_->latitude, origin_->longitude, origin_->altitude);
+        origin_->latitude, origin_->longitude, origin_->altitude);
     } else {
-      RCLCPP_WARN(this->get_logger(),
-                  "Get origin request not successful, trying again...");
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Get origin request not successful, trying again...");
     }
   }
 }
 
-void Geofencing::cleanupNode(){
-    // TODO: CLeanup Node
-};
+void Geostructures::cleanupNode()
+{
+  // TODO: CLeanup Node
+}
 
 using CallbackReturn =
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-CallbackReturn Geofencing::on_configure(const rclcpp_lifecycle::State &_state) {
+CallbackReturn Geostructures::on_configure(const rclcpp_lifecycle::State & _state)
+{
   // Set subscriptions, publishers, services, actions, etc. here.
   this->get_parameter("config_file", config_path_);
 
   setupNode();
 
   return CallbackReturn::SUCCESS;
-};
+}
 
-CallbackReturn Geofencing::on_activate(const rclcpp_lifecycle::State &_state) {
+CallbackReturn Geostructures::on_activate(const rclcpp_lifecycle::State & _state)
+{
   // Set parameters?
 
   return CallbackReturn::SUCCESS;
-};
+}
 
 CallbackReturn
-Geofencing::on_deactivate(const rclcpp_lifecycle::State &_state) {
+Geostructures::on_deactivate(const rclcpp_lifecycle::State & _state)
+{
   // Clean up subscriptions, publishers, services, actions, etc. here.
   cleanupNode();
 
   return CallbackReturn::SUCCESS;
-};
+}
 
-CallbackReturn Geofencing::on_shutdown(const rclcpp_lifecycle::State &_state) {
+CallbackReturn Geostructures::on_shutdown(const rclcpp_lifecycle::State & _state)
+{
   // Clean other resources here.
 
   return CallbackReturn::SUCCESS;
-};
+}
