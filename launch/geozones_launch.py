@@ -8,12 +8,12 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('namespace', default_value='drone_sim_0'),
         DeclareLaunchArgument(
-            'config_file', default_value='geostructures/geofences.json'),
+            'config_file', default_value='geozones/geofences.json'),
         DeclareLaunchArgument('mode', default_value='gps'),  # gps or cartesian
         Node(
-            package='geostructures',
-            executable='geostructures_node',
-            name='geostructures',
+            package='geozones',
+            executable='geozones_node',
+            name='geozones',
             namespace=LaunchConfiguration('namespace'),
             parameters=[{'config_file': LaunchConfiguration(
                 'config_file')}, {'mode': LaunchConfiguration('mode')}],

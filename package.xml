@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>geostructures</name>
+  <name>geozones</name>
   <version>0.1.0</version>
-  <description>Geostructures for AeroStack2</description>
+  <description>Geozones for AeroStack2</description>
   <maintainer email="cvar.upm3@gmail.com">Computer Vision And Aerial Robotics Group (UPM)</maintainer>
   <license>BDS-3-Clause</license>
 

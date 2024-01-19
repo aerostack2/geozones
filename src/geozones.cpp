@@ -1,6 +1,6 @@
 /*!*******************************************************************************************
- *  \file       geostructures.cpp
- *  \brief      Geostructures for AeroStack2
+ *  \file       geozones.cpp
+ *  \brief      Geozones for AeroStack2
  *  \authors    Javier Melero Deza
  *
  *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
@@ -31,17 +31,17 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
-#include "geostructures.hpp"
+#include "geozones.hpp"
 
-Geostructures::Geostructures()
-: as2::Node("geostructures")
+Geozones::Geozones()
+: as2::Node("geozones")
 {
   this->declare_parameter<std::string>(
     "config_file",
-    "geostructures/geofences.json");
+    "geozones/geofences.json");
 }
 
-void Geostructures::run()
+void Geozones::run()
 {
   point_ = {self_x_, self_y_};
 
@@ -49,64 +49,64 @@ void Geostructures::run()
     return;
   }
 
-  if (geostructures_.size() == 0) {
+  if (geozones_.size() == 0) {
     return;
   } else {
-    checkGeostructures();
+    checkGeozones();
   }
 }
 
-void Geostructures::setupNode()
+void Geozones::setupNode()
 {
   pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
     this->generate_global_name(as2_names::topics::self_localization::pose),
     as2_names::topics::self_localization::qos,
-    std::bind(&Geostructures::poseCallback, this, std::placeholders::_1));
+    std::bind(&Geozones::poseCallback, this, std::placeholders::_1));
 
-  set_geostructure_srv_ =
-    this->create_service<geostructures::srv::SetGeostructure>(
-    this->generate_local_name("set_geostructure"),
+  set_geozone_srv_ =
+    this->create_service<geozones::srv::SetGeozone>(
+    this->generate_local_name("set_geozone"),
     std::bind(
-      &Geostructures::setGeoStructureCb, this, std::placeholders::_1,
+      &Geozones::setGeozoneCb, this, std::placeholders::_1,
       std::placeholders::_2));
 
-  get_geostructure_srv_ =
-    this->create_service<geostructures::srv::GetGeostructure>(
-    this->generate_local_name("get_geostructure"),
+  get_geozone_srv_ =
+    this->create_service<geozones::srv::GetGeozone>(
+    this->generate_local_name("get_geozone"),
     std::bind(
-      &Geostructures::getGeoStructureCb, this, std::placeholders::_1,
+      &Geozones::getGeozoneCb, this, std::placeholders::_1,
       std::placeholders::_2));
 
   alert_pub_ = this->create_publisher<as2_msgs::msg::AlertEvent>(
     this->generate_global_name("alert_event"), 1);
 
-  loadGeostructures(config_path_);
+  loadGeozones(config_path_);
 }
 
-void Geostructures::loadGeostructures(const std::string path)
+void Geozones::loadGeozones(const std::string path)
 {
   std::ifstream fJson(path);
   std::stringstream buffer;
   buffer << fJson.rdbuf();
   auto json = nlohmann::json::parse(buffer.str());
 
-  for (auto json_geostructure : json["geostructures"]) {
-    geoStructure geostructure_to_load;
+  for (auto json_geozone : json["geozones"]) {
+    geozone geozone_to_load;
     if (!checkValidity(
-        std::size(json_geostructure["polygon"]),
-        json_geostructure["id"], json_geostructure["type"],
-        json_geostructure["data_type"]))
+        std::size(json_geozone["polygon"]),
+        json_geozone["id"], json_geozone["type"],
+        json_geozone["data_type"]))
     {
       continue;
     } else {
-      geostructure_to_load.data_type = json_geostructure["data_type"];
+      geozone_to_load.data_type = json_geozone["data_type"];
       std::vector<std::array<double, 2>> polygon;
-      if (geostructure_to_load.data_type == "gps") {
+      if (geozone_to_load.data_type == "gps") {
         if (!origin_set_) {
           setupGPS();
           origin_set_ = true;
         }
-        for (std::array<double, 2> point : json_geostructure["polygon"]) {
+        for (std::array<double, 2> point : json_geozone["polygon"]) {
           double z;
           gps_handler->LatLon2Local(
             point[0], point[1], 0.0, point[0], point[1],
@@ -114,26 +114,26 @@ void Geostructures::loadGeostructures(const std::string path)
           polygon.push_back(point);
         }
       } else {
-        for (std::array<double, 2> point : json_geostructure["polygon"]) {
+        for (std::array<double, 2> point : json_geozone["polygon"]) {
           polygon.push_back(point);
         }
       }
 
-      geostructure_to_load.id = json_geostructure["id"];
-      geostructure_to_load.alert = json_geostructure["alert"];
+      geozone_to_load.id = json_geozone["id"];
+      geozone_to_load.alert = json_geozone["alert"];
 
-      geostructure_to_load.type = json_geostructure["type"];
-      geostructure_to_load.data_type = json_geostructure["data_type"];
-      geostructure_to_load.z_up =
-        json.contains("z_up") ? static_cast<float>(json_geostructure["z_up"]) :
+      geozone_to_load.type = json_geozone["type"];
+      geozone_to_load.data_type = json_geozone["data_type"];
+      geozone_to_load.z_up =
+        json.contains("z_up") ? static_cast<float>(json_geozone["z_up"]) :
         100000.0;
-      geostructure_to_load.z_down =
+      geozone_to_load.z_down =
         json.contains("z_down") ?
-        static_cast<float>(json_geostructure["z_down"]) :
+        static_cast<float>(json_geozone["z_down"]) :
         -100000.0;
-      geostructure_to_load.in = false;
-      geostructure_to_load.polygon = polygon;
-      geostructures_.push_back(geostructure_to_load);
+      geozone_to_load.in = false;
+      geozone_to_load.polygon = polygon;
+      geozones_.push_back(geozone_to_load);
 
       RCLCPP_INFO(
         this->get_logger(),
@@ -143,7 +143,7 @@ void Geostructures::loadGeostructures(const std::string path)
 }
 // CALLBACKS //
 
-void Geostructures::poseCallback(
+void Geozones::poseCallback(
   const geometry_msgs::msg::PoseStamped::SharedPtr _msg)
 {
   self_x_ = _msg->pose.position.x;
@@ -153,52 +153,52 @@ void Geostructures::poseCallback(
   start_run_ = true;
 }
 
-void Geostructures::setGeoStructureCb(
-  const std::shared_ptr<geostructures::srv::SetGeostructure::Request> request,
-  std::shared_ptr<geostructures::srv::SetGeostructure::Response> response)
+void Geozones::setGeozoneCb(
+  const std::shared_ptr<geozones::srv::SetGeozone::Request> request,
+  std::shared_ptr<geozones::srv::SetGeozone::Response> response)
 {
   if (!checkValidity(
-      std::size(request->geostructure.polygon.points),
-      request->geostructure.id, request->geostructure.type,
-      request->geostructure.data_type))
+      std::size(request->geozone.polygon.points),
+      request->geozone.id, request->geozone.type,
+      request->geozone.data_type))
   {
     response->success = false;
   } else {
-    geoStructure geostructure_to_load;
+    geozone geozone_to_load;
     std::vector<std::array<double, 2>> polygon;
-    for (int i = 0; i < std::size(request->geostructure.polygon.points); i++) {
-      std::array<double, 2> point{request->geostructure.polygon.points[i].x,
-        request->geostructure.polygon.points[i].y};
+    for (int i = 0; i < std::size(request->geozone.polygon.points); i++) {
+      std::array<double, 2> point{request->geozone.polygon.points[i].x,
+        request->geozone.polygon.points[i].y};
       polygon.push_back(point);
     }
-    geostructure_to_load.id = request->geostructure.id;
-    geostructure_to_load.alert = request->geostructure.alert;
-    geostructure_to_load.type = request->geostructure.type;
-    geostructure_to_load.data_type = request->geostructure.data_type;
-    geostructure_to_load.z_up = request->geostructure.z_up;
-    geostructure_to_load.z_down = request->geostructure.z_down;
-    geostructure_to_load.in = false;
-    geostructure_to_load.polygon = polygon;
-    geostructures_.push_back(geostructure_to_load);
+    geozone_to_load.id = request->geozone.id;
+    geozone_to_load.alert = request->geozone.alert;
+    geozone_to_load.type = request->geozone.type;
+    geozone_to_load.data_type = request->geozone.data_type;
+    geozone_to_load.z_up = request->geozone.z_up;
+    geozone_to_load.z_down = request->geozone.z_down;
+    geozone_to_load.in = false;
+    geozone_to_load.polygon = polygon;
+    geozones_.push_back(geozone_to_load);
 
     RCLCPP_INFO(this->get_logger(), "Geostructure added.");
     response->success = true;
   }
 }
 
-void Geostructures::getGeoStructureCb(
-  const std::shared_ptr<geostructures::srv::GetGeostructure::Request> request,
-  std::shared_ptr<geostructures::srv::GetGeostructure::Response> response)
+void Geozones::getGeozoneCb(
+  const std::shared_ptr<geozones::srv::GetGeozone::Request> request,
+  std::shared_ptr<geozones::srv::GetGeozone::Response> response)
 {
-  if (geostructures_.size() == 0) {
-    RCLCPP_WARN(this->get_logger(), "No geostructure has been set yet.");
+  if (geozones_.size() == 0) {
+    RCLCPP_WARN(this->get_logger(), "No geozone has been set yet.");
     response->success = false;
   } else {
-    std::vector<geostructures::msg::Geostructure> geofence_list;
-    for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-      ptr < geostructures_.end(); ptr++)
+    std::vector<geozones::msg::Geozone> geozone_list;
+    for (std::vector<geozone>::iterator ptr = geozones_.begin();
+      ptr < geozones_.end(); ptr++)
     {
-      geostructures::msg::Geostructure geostructure;
+      geozones::msg::Geozone geozone;
       for (std::vector<std::array<double, 2>>::iterator ptr2 =
         ptr->polygon.begin();
         ptr2 < ptr->polygon.end(); ptr2++)
@@ -213,27 +213,27 @@ void Geostructures::getGeoStructureCb(
           point.y = (*ptr2)[1];
         }
 
-        geostructure.polygon.points.push_back(point);
+        geozone.polygon.points.push_back(point);
       }
-      geostructure.z_up = ptr->z_up != ptr->z_up;
-      geostructure.z_down = ptr->z_down != ptr->z_down;
-      geostructure.type = ptr->type;
-      geostructure.data_type = ptr->data_type;
-      geostructure.alert = ptr->alert;
-      geostructure.id = ptr->id;
-      geofence_list.push_back(geostructure);
+      geozone.z_up = ptr->z_up != ptr->z_up;
+      geozone.z_down = ptr->z_down != ptr->z_down;
+      geozone.type = ptr->type;
+      geozone.data_type = ptr->data_type;
+      geozone.alert = ptr->alert;
+      geozone.id = ptr->id;
+      geozone_list.push_back(geozone);
     }
-    response->geostructure_list = geofence_list;
+    response->geozone_list = geozone_list;
     response->success = true;
   }
 }
 
-void Geostructures::checkGeostructures()
+void Geozones::checkGeozones()
 {
 
   as2_msgs::msg::AlertEvent alert;
-  for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-    ptr < geostructures_.end(); ptr++)
+  for (std::vector<geozone>::iterator ptr = geozones_.begin();
+    ptr < geozones_.end(); ptr++)
   {
     // auto [point, polygon] = translatePolygonWithPoint(ptr->polygon, point_);
 
@@ -265,10 +265,10 @@ void Geostructures::checkGeostructures()
   }
 }
 
-bool Geostructures::findGeostructureId(int id)
+bool Geozones::findGeozoneId(int id)
 {
-  for (std::vector<geoStructure>::iterator ptr = geostructures_.begin();
-    ptr < geostructures_.end(); ptr++)
+  for (std::vector<geozone>::iterator ptr = geozones_.begin();
+    ptr < geozones_.end(); ptr++)
   {
     if (id == ptr->id) {
       return false;
@@ -277,11 +277,11 @@ bool Geostructures::findGeostructureId(int id)
   return true;
 }
 
-bool Geostructures::checkValidity(
+bool Geozones::checkValidity(
   int size, int id, std::string type,
   std::string data_type)
 {
-  if (!findGeostructureId(id)) {
+  if (!findGeozoneId(id)) {
     RCLCPP_WARN(this->get_logger(), "Id already exist.");
     return false;
   }
@@ -312,7 +312,7 @@ bool Geostructures::checkValidity(
   return true;
 }
 
-void Geostructures::setupGPS()
+void Geozones::setupGPS()
 {
   get_origin_srv_ = this->create_client<as2_msgs::srv::GetOrigin>(
     as2_names::services::gps::get_origin);   // Should be same origin for every
@@ -365,7 +365,7 @@ void Geostructures::setupGPS()
   }
 }
 
-void Geostructures::cleanupNode()
+void Geozones::cleanupNode()
 {
   // TODO: CLeanup Node
 }
@@ -373,7 +373,7 @@ void Geostructures::cleanupNode()
 using CallbackReturn =
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-CallbackReturn Geostructures::on_configure(const rclcpp_lifecycle::State & _state)
+CallbackReturn Geozones::on_configure(const rclcpp_lifecycle::State & _state)
 {
   // Set subscriptions, publishers, services, actions, etc. here.
   this->get_parameter("config_file", config_path_);
@@ -383,7 +383,7 @@ CallbackReturn Geostructures::on_configure(const rclcpp_lifecycle::State & _stat
   return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn Geostructures::on_activate(const rclcpp_lifecycle::State & _state)
+CallbackReturn Geozones::on_activate(const rclcpp_lifecycle::State & _state)
 {
   // Set parameters?
 
@@ -391,7 +391,7 @@ CallbackReturn Geostructures::on_activate(const rclcpp_lifecycle::State & _state
 }
 
 CallbackReturn
-Geostructures::on_deactivate(const rclcpp_lifecycle::State & _state)
+Geozones::on_deactivate(const rclcpp_lifecycle::State & _state)
 {
   // Clean up subscriptions, publishers, services, actions, etc. here.
   cleanupNode();
@@ -399,7 +399,7 @@ Geostructures::on_deactivate(const rclcpp_lifecycle::State & _state)
   return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn Geostructures::on_shutdown(const rclcpp_lifecycle::State & _state)
+CallbackReturn Geozones::on_shutdown(const rclcpp_lifecycle::State & _state)
 {
   // Clean other resources here.
 

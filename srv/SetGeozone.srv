@@ -1,8 +1,8 @@
 # SERVICE TYPE: SetGeostructure
 # ------------------------------------------------------------------------------
-# This service creates a geoStructure (lat, lon, alt) to set in geostructures node
+# This service creates a geoStructure (lat, lon, alt) to set in geozones node
 
-geostructures/Geostructure geostructure  # geostructure to set
+geozones/Geozone geozone  # geostructure to set
 ---
 bool success                # whether the geoStructure has been set or not
 # ------------------------------------------------------------------------------

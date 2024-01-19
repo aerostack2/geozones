@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-set(PROJECT_NAME geostructures)
+set(PROJECT_NAME geozones)
 project(${PROJECT_NAME} VERSION 0.2.0)
 
 # Default to C++17
@@ -44,12 +44,12 @@ foreach(DEPENDENCY ${PROJECT_DEPENDENCIES})
 endforeach()
 
 set(SRVS_FILES
-"srv/GetGeostructure.srv"
-"srv/SetGeostructure.srv"
+"srv/GetGeozone.srv"
+"srv/SetGeozone.srv"
 )
 
 set(MSGS_FILES
-"msg/Geostructure.msg"
+"msg/Geozone.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -66,13 +66,13 @@ include_directories(
 )
 
 set(SOURCE_CPP_FILES
-  src/geostructures.cpp
+  src/geozones.cpp
 )
 
 # set(INCLUDE_HPP_FILES
 # include/${PROJECT_NAME}/as2_node_template_libs.hpp
 # )
-add_executable(${PROJECT_NAME}_node src/geostructures_node.cpp ${SOURCE_CPP_FILES})
+add_executable(${PROJECT_NAME}_node src/geozones_node.cpp ${SOURCE_CPP_FILES})
 ament_target_dependencies(${PROJECT_NAME}_node ${PROJECT_DEPENDENCIES})
 
 rosidl_target_interfaces(${PROJECT_NAME}_node

@@ -1,6 +1,6 @@
-# Geostructures
+# Geozones
 
-Geostructures node for Aerostack2.
+Geozones node for Aerostack2.
 
 Params:
 - config_file: Polygons that define geofences are defined here. (IMPORTANT) Remember that the order in which points are given defines how the polygon is built, this means that n point will be conected to n+1 point and so on. Last point will be connected to the first point.
@@ -17,7 +17,7 @@ Config file parameters:
 Example config file:
 
     {
-        "geostructures": [
+        "geozones": [
             {
                 "id": 1,
                 "alert": 1,
