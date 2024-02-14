@@ -39,6 +39,8 @@ Geozones::Geozones()
   this->declare_parameter<std::string>(
     "config_file",
     "geozones/geofences.json");
+
+  this->declare_parameter<bool>("debug_rviz", true);
 }
 
 void Geozones::run()
@@ -80,6 +82,14 @@ void Geozones::setupNode()
   alert_pub_ = this->create_publisher<as2_msgs::msg::AlertEvent>(
     this->generate_global_name("alert_event"), 1);
 
+  if (rviz_visualization_) {
+    rviz_pub_ = this->create_publisher<geometry_msgs::msg::PolygonStamped>(
+      this->generate_global_name("geozones_rviz"), 1);
+    timer_ = this->create_timer(
+      std::chrono::milliseconds(100),
+      std::bind(&Geozones::rvizVisualizationCb, this));
+  }
+
   loadGeozones(config_path_);
 }
 
@@ -97,6 +107,9 @@ void Geozones::loadGeozones(const std::string path)
         json_geozone["id"], json_geozone["type"],
         json_geozone["data_type"]))
     {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Geostructure %i not loaded from JSON file", json_geozone["id"]);
       continue;
     } else {
       geozone_to_load.data_type = json_geozone["data_type"];
@@ -124,13 +137,16 @@ void Geozones::loadGeozones(const std::string path)
 
       geozone_to_load.type = json_geozone["type"];
       geozone_to_load.data_type = json_geozone["data_type"];
+
       geozone_to_load.z_up =
         json.contains("z_up") ? static_cast<float>(json_geozone["z_up"]) :
-        100000.0;
+        std::numeric_limits<float>::max();
+
       geozone_to_load.z_down =
         json.contains("z_down") ?
         static_cast<float>(json_geozone["z_down"]) :
-        -100000.0;
+        std::numeric_limits<float>::lowest();
+
       geozone_to_load.in = false;
       geozone_to_load.polygon = polygon;
       geozones_.push_back(geozone_to_load);
@@ -206,8 +222,14 @@ void Geozones::getGeozoneCb(
         geometry_msgs::msg::Point32 point;
         double x, y, z;
         if (ptr->data_type == "gps") {
-          gps_handler->Local2LatLon((*ptr2)[0], (*ptr2)[1], 0.0, x, y, z);
-          point.x, point.y, point.z = x, y, z;
+          RCLCPP_INFO(
+            this->get_logger(), "POINT: %f, %f", (*ptr2)[0], (*ptr2)[1]);
+          gps_handler->Local2LatLon((*ptr2)[0], (*ptr2)[1], 0.0, x, y, z);  // TO-DO: Check
+          RCLCPP_INFO(
+            this->get_logger(), "CONVERTED POINT: %f, %f", x, y);
+          point.x = x;
+          point.y = y;
+          z = 0.0;
         } else {
           point.x = (*ptr2)[0];
           point.y = (*ptr2)[1];
@@ -341,8 +363,7 @@ void Geozones::setupGPS()
         result, std::chrono::seconds(1)) ==
       rclcpp::FutureReturnCode::SUCCESS)
     {
-      // ;
-
+      RCLCPP_INFO(this->get_logger(), "Origin received");
     } else {
       RCLCPP_ERROR(this->get_logger(), "Failed to call service get origin");
       return;
@@ -365,6 +386,27 @@ void Geozones::setupGPS()
   }
 }
 
+void Geozones::rvizVisualizationCb()
+{
+  for (std::vector<geozone>::iterator ptr = geozones_.begin();
+    ptr < geozones_.end(); ptr++)
+  {
+    geometry_msgs::msg::PolygonStamped polygon;
+    polygon.header.frame_id = "earth";
+    polygon.header.stamp = this->now();
+    for (std::vector<std::array<double, 2>>::iterator ptr2 =
+      ptr->polygon.begin();
+      ptr2 < ptr->polygon.end(); ptr2++)
+    {
+      geometry_msgs::msg::Point32 point;
+      point.x = (*ptr2)[0];
+      point.y = (*ptr2)[1];
+      polygon.polygon.points.push_back(point);
+    }
+    rviz_pub_->publish(polygon);
+  }
+}
+
 void Geozones::cleanupNode()
 {
   // TODO: CLeanup Node
@@ -377,6 +419,7 @@ CallbackReturn Geozones::on_configure(const rclcpp_lifecycle::State & _state)
 {
   // Set subscriptions, publishers, services, actions, etc. here.
   this->get_parameter("config_file", config_path_);
+  this->get_parameter("debug_rviz", rviz_visualization_);
 
   setupNode();
 

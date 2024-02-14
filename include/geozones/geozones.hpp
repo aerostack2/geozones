@@ -34,37 +34,41 @@
 #ifndef GEOZONES_HPP_
 #define GEOZONES_HPP_
 
-#include "pnpoly.hpp"
-#include "json.hpp"
+#include <limits>
 
 #include <algorithm>
+#include <memory>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <rclcpp/qos.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <vector>
 
-#include "geometry_msgs/msg/point32.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "sensor_msgs/msg/nav_sat_fix.hpp"
-#include "std_msgs/msg/int8.hpp"
+#include "geozones/msg/geozone.hpp"
+#include "geozones/srv/get_geozone.hpp"
+#include "geozones/srv/set_geozone.hpp"
+
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <rclcpp/qos.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <geographic_msgs/msg/geo_point.hpp>
 
 #include "as2_core/names/services.hpp"
 #include "as2_core/names/topics.hpp"
 #include "as2_core/node.hpp"
 #include "as2_msgs/msg/alert_event.hpp"
-
 #include "as2_core/utils/gps_utils.hpp"
 #include "as2_msgs/srv/get_origin.hpp"
-#include "geozones/msg/geozone.hpp"
-#include "geozones/srv/get_geozone.hpp"
-#include "geozones/srv/set_geozone.hpp"
+#include "geometry_msgs/msg/point32.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/polygon_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "std_msgs/msg/int8.hpp"
+
+#include "pnpoly.hpp"
+#include "json.hpp"
 
 class Geozones : public as2::Node
 {
@@ -86,7 +90,7 @@ private:
     float z_down;
     int id;                // id of geozone
     int alert;             // alert that generates
-    std::string data_type; // type of geozone: cartesian or gps
+    std::string data_type;  // type of geozone: cartesian or gps
     bool in;               // if point is in the geofence
   };
 
@@ -103,13 +107,18 @@ private:
   bool geofence_detected;
 
   std::string config_path_;
-  std::string mode_;
+  bool rviz_visualization_ = false;
   std::array<double, 2> point_;
   std::vector<geozone> geozones_;
 
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+
   rclcpp::Publisher<as2_msgs::msg::AlertEvent>::SharedPtr alert_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::PolygonStamped>::SharedPtr
+    rviz_pub_;
+
+  rclcpp::TimerBase::SharedPtr timer_;
 
   rclcpp::Service<geozones::srv::SetGeozone>::SharedPtr
     set_geozone_srv_;
@@ -129,6 +138,8 @@ private:
     const std::shared_ptr<geozones::srv::GetGeozone::Request> request,
     std::shared_ptr<geozones::srv::GetGeozone::Response> response);
 
+  void rvizVisualizationCb();
+
   void checkGeozones();
   bool checkValidity(int size, int id, std::string type, std::string data_type);
   bool findGeozoneId(int id);
@@ -143,4 +154,4 @@ private:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State &) override;
 };
 
-#endif // BASIC_STATE_ESTIMATOR_HPP_
+#endif  // GEOZONES_HPP_
