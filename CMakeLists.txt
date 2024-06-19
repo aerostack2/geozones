@@ -14,6 +14,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
 
 # find dependencies
 set(PROJECT_DEPENDENCIES
@@ -50,6 +51,7 @@ set(SRVS_FILES
 
 set(MSGS_FILES
 "msg/Geozone.msg"
+"msg/Polygonlist.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -61,8 +63,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 include_directories(
   include
   include/${PROJECT_NAME}
-  include/geofence.hpp
-  include/json.hpp
 )
 
 set(SOURCE_CPP_FILES
@@ -78,11 +78,12 @@ ament_target_dependencies(${PROJECT_NAME}_node ${PROJECT_DEPENDENCIES})
 rosidl_target_interfaces(${PROJECT_NAME}_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+target_link_libraries(${PROJECT_NAME}_node nlohmann_json::nlohmann_json)
 
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME})
-  
+
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}
@@ -91,6 +92,27 @@ install(DIRECTORY
 install(TARGETS
   ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME})
+
+# find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
+# if(CMAKE_CXX_CPPCHECK)
+#     list(APPEND CMAKE_CXX_CPPCHECK
+#       "--enable=all"
+#       "--inconclusive"
+#       "--force"
+#       "-i/include/geozones/pnpoly.hpp" # Add the path to the file you want to exclude
+#     )
+# endif()
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  file(GLOB_RECURSE EXCLUDE_FILES
+    include/${PROJECT_NAME}/pnpoly.hpp
+    build/*
+    install/*
+  )
+  set(AMENT_LINT_AUTO_FILE_EXCLUDE ${EXCLUDE_FILES})
+  ament_lint_auto_find_test_dependencies()
+endif()
 
 ament_package()
 

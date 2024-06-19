@@ -150,5 +150,5 @@ inline bool isIn(std::vector<std::array<T, 2>> & polygon, std::array<T, 2> & p)
   return inside;
 }
 
-}
-#endif
+}  // namespace Pnpoly
+#endif  // PNPOLY_HPP_

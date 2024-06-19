@@ -1,34 +1,37 @@
+// Copyright 2024 Universidad Politécnica de Madrid
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//    * Redistributions of source code must retain the above copyright
+//      notice, this list of conditions and the following disclaimer.
+//
+//    * Redistributions in binary form must reproduce the above copyright
+//      notice, this list of conditions and the following disclaimer in the
+//      documentation and/or other materials provided with the distribution.
+//
+//    * Neither the name of the Universidad Politécnica de Madrid nor the names of its
+//      contributors may be used to endorse or promote products derived from
+//      this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
 /*!*******************************************************************************************
- *  \file       geozones.cpp
- *  \brief      Geozones for AeroStack2
+ *  \file       geozones.hpp
+ *  \brief      Source file for geozones
  *  \authors    Javier Melero Deza
- *
- *  \copyright  Copyright (c) 2022 Universidad Politécnica de Madrid
+ *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ********************************************************************************/
 
 #include "geozones.hpp"
@@ -65,15 +68,13 @@ void Geozones::setupNode()
     as2_names::topics::self_localization::qos,
     std::bind(&Geozones::poseCallback, this, std::placeholders::_1));
 
-  set_geozone_srv_ =
-    this->create_service<geozones::srv::SetGeozone>(
+  set_geozone_srv_ = this->create_service<geozones::srv::SetGeozone>(
     this->generate_local_name("set_geozone"),
     std::bind(
       &Geozones::setGeozoneCb, this, std::placeholders::_1,
       std::placeholders::_2));
 
-  get_geozone_srv_ =
-    this->create_service<geozones::srv::GetGeozone>(
+  get_geozone_srv_ = this->create_service<geozones::srv::GetGeozone>(
     this->generate_local_name("get_geozone"),
     std::bind(
       &Geozones::getGeozoneCb, this, std::placeholders::_1,
@@ -83,9 +84,10 @@ void Geozones::setupNode()
     this->generate_global_name("alert_event"), 1);
 
   if (rviz_visualization_) {
-    rviz_pub_ = this->create_publisher<geometry_msgs::msg::PolygonStamped>(
+    rviz_pub_ = this->create_publisher<geozones::msg::Polygonlist>(
       this->generate_global_name("geozones_rviz"), 1);
-    timer_ = this->create_timer(
+    timer_ =
+      this->create_timer(
       std::chrono::milliseconds(100),
       std::bind(&Geozones::rvizVisualizationCb, this));
   }
@@ -103,13 +105,13 @@ void Geozones::loadGeozones(const std::string path)
   for (auto json_geozone : json["geozones"]) {
     geozone geozone_to_load;
     if (!checkValidity(
-        std::size(json_geozone["polygon"]),
-        json_geozone["id"], json_geozone["type"],
-        json_geozone["data_type"]))
+        std::size(json_geozone["polygon"]), json_geozone["id"],
+        json_geozone["type"], json_geozone["data_type"]))
     {
       RCLCPP_INFO(
         this->get_logger(),
-        "Geostructure %i not loaded from JSON file", json_geozone["id"]);
+        "Geozone %d not loaded from JSON file",
+        json_geozone["id"]);
       continue;
     } else {
       geozone_to_load.data_type = json_geozone["data_type"];
@@ -138,12 +140,11 @@ void Geozones::loadGeozones(const std::string path)
       geozone_to_load.type = json_geozone["type"];
       geozone_to_load.data_type = json_geozone["data_type"];
 
-      geozone_to_load.z_up =
-        json.contains("z_up") ? static_cast<float>(json_geozone["z_up"]) :
-        std::numeric_limits<float>::max();
+      geozone_to_load.z_up = (json_geozone.contains("z_up")) ?
+        static_cast<float>(json_geozone["z_up"]) :
+        std::numeric_limits<float>::infinity();
 
-      geozone_to_load.z_down =
-        json.contains("z_down") ?
+      geozone_to_load.z_down = (json_geozone.contains("z_down")) ?
         static_cast<float>(json_geozone["z_down"]) :
         std::numeric_limits<float>::lowest();
 
@@ -223,10 +224,12 @@ void Geozones::getGeozoneCb(
         double x, y, z;
         if (ptr->data_type == "gps") {
           RCLCPP_INFO(
-            this->get_logger(), "POINT: %f, %f", (*ptr2)[0], (*ptr2)[1]);
-          gps_handler->Local2LatLon((*ptr2)[0], (*ptr2)[1], 0.0, x, y, z);  // TO-DO: Check
-          RCLCPP_INFO(
-            this->get_logger(), "CONVERTED POINT: %f, %f", x, y);
+            this->get_logger(), "POINT: %f, %f", (*ptr2)[0],
+            (*ptr2)[1]);
+          gps_handler->Local2LatLon(
+            (*ptr2)[0], (*ptr2)[1], 0.0, x, y,
+            z);
+          RCLCPP_INFO(this->get_logger(), "CONVERTED POINT: %f, %f", x, y);
           point.x = x;
           point.y = y;
           z = 0.0;
@@ -237,8 +240,8 @@ void Geozones::getGeozoneCb(
 
         geozone.polygon.points.push_back(point);
       }
-      geozone.z_up = ptr->z_up != ptr->z_up;
-      geozone.z_down = ptr->z_down != ptr->z_down;
+      geozone.z_up = ptr->z_up;
+      geozone.z_down = ptr->z_down;
       geozone.type = ptr->type;
       geozone.data_type = ptr->data_type;
       geozone.alert = ptr->alert;
@@ -252,15 +255,14 @@ void Geozones::getGeozoneCb(
 
 void Geozones::checkGeozones()
 {
-
   as2_msgs::msg::AlertEvent alert;
   for (std::vector<geozone>::iterator ptr = geozones_.begin();
     ptr < geozones_.end(); ptr++)
   {
     // auto [point, polygon] = translatePolygonWithPoint(ptr->polygon, point_);
 
-    if (!Pnpoly::isIn<double>(ptr->polygon, point_) ||
-      self_z_ < ptr->z_down || self_z_ > ptr->z_up)
+    if (!Pnpoly::isIn<double>(ptr->polygon, point_) || self_z_ < ptr->z_down ||
+      self_z_ > ptr->z_up)
     {
       if (ptr->type == "geocage") {
         alert.alert = ptr->alert;
@@ -339,7 +341,7 @@ void Geozones::setupGPS()
   get_origin_srv_ = this->create_client<as2_msgs::srv::GetOrigin>(
     as2_names::services::gps::get_origin);   // Should be same origin for every
                                              // drone ?
-  while (!get_origin_srv_->wait_for_service(std::chrono::seconds(3))) {
+  while (!get_origin_srv_->wait_for_service()) {
     if (!rclcpp::ok()) {
       RCLCPP_ERROR(
         this->get_logger(),
@@ -353,7 +355,7 @@ void Geozones::setupGPS()
 
   request->structure_needs_at_least_one_member = 0;
 
-  bool success = false; // TO-DO: Improve this
+  bool success = false;  // TO-DO(javilinos): Improve this
 
   // Wait for the result.
   while (!success) {
@@ -388,28 +390,30 @@ void Geozones::setupGPS()
 
 void Geozones::rvizVisualizationCb()
 {
-  for (std::vector<geozone>::iterator ptr = geozones_.begin();
-    ptr < geozones_.end(); ptr++)
+  geozones::msg::Polygonlist polygonlist;
+  for (std::vector<geozone>::iterator geozone = geozones_.begin();
+    geozone < geozones_.end(); geozone++)
   {
     geometry_msgs::msg::PolygonStamped polygon;
     polygon.header.frame_id = "earth";
     polygon.header.stamp = this->now();
-    for (std::vector<std::array<double, 2>>::iterator ptr2 =
-      ptr->polygon.begin();
-      ptr2 < ptr->polygon.end(); ptr2++)
+    for (std::vector<std::array<double, 2>>::iterator poly_point =
+      geozone->polygon.begin();
+      poly_point < geozone->polygon.end(); poly_point++)
     {
       geometry_msgs::msg::Point32 point;
-      point.x = (*ptr2)[0];
-      point.y = (*ptr2)[1];
+      point.x = (*poly_point)[0];
+      point.y = (*poly_point)[1];
       polygon.polygon.points.push_back(point);
     }
-    rviz_pub_->publish(polygon);
+    polygonlist.polygons.push_back(polygon);
   }
+  rviz_pub_->publish(polygonlist);
 }
 
 void Geozones::cleanupNode()
 {
-  // TODO: CLeanup Node
+  // TODO(javilinos): Cleanup Node
 }
 
 using CallbackReturn =
@@ -433,8 +437,7 @@ CallbackReturn Geozones::on_activate(const rclcpp_lifecycle::State & _state)
   return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn
-Geozones::on_deactivate(const rclcpp_lifecycle::State & _state)
+CallbackReturn Geozones::on_deactivate(const rclcpp_lifecycle::State & _state)
 {
   // Clean up subscriptions, publishers, services, actions, etc. here.
   cleanupNode();
