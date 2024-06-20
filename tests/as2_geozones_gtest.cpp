@@ -27,23 +27,25 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /*!*******************************************************************************************
- *  \file       geozones.hpp
- *  \brief      Node file for geozones
+ *  \file       as2_geozones_gtest.hpp
+ *  \brief      as2 geozones test file.
  *  \authors    Javier Melero Deza
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
  ********************************************************************************/
+#include <gtest/gtest.h>
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <as2_geozones/as2_geozones.hpp>
 
-#include "as2_core/core_functions.hpp"
-#include "geozones.hpp"
-#include "pnpoly.hpp"
+TEST(Geozones, test_constructor) {
+  EXPECT_NO_THROW(
+    std::shared_ptr<Geozones> node =
+    std::make_shared<Geozones>());
+}
 
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<Geozones>();
-  node->preset_loop_frequency(10);  // Node frequency for run and callbacks
-  as2::spinLoop(node, std::bind(&Geozones::run, node));
-  rclcpp::shutdown();
-  return 0;
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

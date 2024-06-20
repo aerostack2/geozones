@@ -34,7 +34,7 @@
  *              All Rights Reserved
  ********************************************************************************/
 
-#include "geozones.hpp"
+#include "as2_geozones.hpp"
 
 Geozones::Geozones()
 : as2::Node("geozones")
@@ -63,18 +63,19 @@ void Geozones::run()
 
 void Geozones::setupNode()
 {
+  // Set subscriptions, publishers and services.
   pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
     this->generate_global_name(as2_names::topics::self_localization::pose),
     as2_names::topics::self_localization::qos,
     std::bind(&Geozones::poseCallback, this, std::placeholders::_1));
 
-  set_geozone_srv_ = this->create_service<geozones::srv::SetGeozone>(
+  set_geozone_srv_ = this->create_service<as2_geozones::srv::SetGeozone>(
     this->generate_local_name("set_geozone"),
     std::bind(
       &Geozones::setGeozoneCb, this, std::placeholders::_1,
       std::placeholders::_2));
 
-  get_geozone_srv_ = this->create_service<geozones::srv::GetGeozone>(
+  get_geozone_srv_ = this->create_service<as2_geozones::srv::GetGeozone>(
     this->generate_local_name("get_geozone"),
     std::bind(
       &Geozones::getGeozoneCb, this, std::placeholders::_1,
@@ -84,7 +85,7 @@ void Geozones::setupNode()
     this->generate_global_name("alert_event"), 1);
 
   if (rviz_visualization_) {
-    rviz_pub_ = this->create_publisher<geozones::msg::Polygonlist>(
+    rviz_pub_ = this->create_publisher<as2_geozones::msg::Polygonlist>(
       this->generate_global_name("geozones_rviz"), 1);
     timer_ =
       this->create_timer(
@@ -97,6 +98,7 @@ void Geozones::setupNode()
 
 void Geozones::loadGeozones(const std::string path)
 {
+  // Load geozones from JSON file
   std::ifstream fJson(path);
   std::stringstream buffer;
   buffer << fJson.rdbuf();
@@ -156,100 +158,6 @@ void Geozones::loadGeozones(const std::string path)
         this->get_logger(),
         "Geostructure Succesfully loaded from JSON file");
     }
-  }
-}
-// CALLBACKS //
-
-void Geozones::poseCallback(
-  const geometry_msgs::msg::PoseStamped::SharedPtr _msg)
-{
-  self_x_ = _msg->pose.position.x;
-  self_y_ = _msg->pose.position.y;
-  self_z_ = _msg->pose.position.z;
-
-  start_run_ = true;
-}
-
-void Geozones::setGeozoneCb(
-  const std::shared_ptr<geozones::srv::SetGeozone::Request> request,
-  std::shared_ptr<geozones::srv::SetGeozone::Response> response)
-{
-  if (!checkValidity(
-      std::size(request->geozone.polygon.points),
-      request->geozone.id, request->geozone.type,
-      request->geozone.data_type))
-  {
-    response->success = false;
-  } else {
-    geozone geozone_to_load;
-    std::vector<std::array<double, 2>> polygon;
-    for (int i = 0; i < std::size(request->geozone.polygon.points); i++) {
-      std::array<double, 2> point{request->geozone.polygon.points[i].x,
-        request->geozone.polygon.points[i].y};
-      polygon.push_back(point);
-    }
-    geozone_to_load.id = request->geozone.id;
-    geozone_to_load.alert = request->geozone.alert;
-    geozone_to_load.type = request->geozone.type;
-    geozone_to_load.data_type = request->geozone.data_type;
-    geozone_to_load.z_up = request->geozone.z_up;
-    geozone_to_load.z_down = request->geozone.z_down;
-    geozone_to_load.in = false;
-    geozone_to_load.polygon = polygon;
-    geozones_.push_back(geozone_to_load);
-
-    RCLCPP_INFO(this->get_logger(), "Geostructure added.");
-    response->success = true;
-  }
-}
-
-void Geozones::getGeozoneCb(
-  const std::shared_ptr<geozones::srv::GetGeozone::Request> request,
-  std::shared_ptr<geozones::srv::GetGeozone::Response> response)
-{
-  if (geozones_.size() == 0) {
-    RCLCPP_WARN(this->get_logger(), "No geozone has been set yet.");
-    response->success = false;
-  } else {
-    std::vector<geozones::msg::Geozone> geozone_list;
-    for (std::vector<geozone>::iterator ptr = geozones_.begin();
-      ptr < geozones_.end(); ptr++)
-    {
-      geozones::msg::Geozone geozone;
-      for (std::vector<std::array<double, 2>>::iterator ptr2 =
-        ptr->polygon.begin();
-        ptr2 < ptr->polygon.end(); ptr2++)
-      {
-        geometry_msgs::msg::Point32 point;
-        double x, y, z;
-        if (ptr->data_type == "gps") {
-          RCLCPP_INFO(
-            this->get_logger(), "POINT: %f, %f", (*ptr2)[0],
-            (*ptr2)[1]);
-          gps_handler->Local2LatLon(
-            (*ptr2)[0], (*ptr2)[1], 0.0, x, y,
-            z);
-          RCLCPP_INFO(this->get_logger(), "CONVERTED POINT: %f, %f", x, y);
-          point.x = x;
-          point.y = y;
-          z = 0.0;
-        } else {
-          point.x = (*ptr2)[0];
-          point.y = (*ptr2)[1];
-        }
-
-        geozone.polygon.points.push_back(point);
-      }
-      geozone.z_up = ptr->z_up;
-      geozone.z_down = ptr->z_down;
-      geozone.type = ptr->type;
-      geozone.data_type = ptr->data_type;
-      geozone.alert = ptr->alert;
-      geozone.id = ptr->id;
-      geozone_list.push_back(geozone);
-    }
-    response->geozone_list = geozone_list;
-    response->success = true;
   }
 }
 
@@ -388,9 +296,104 @@ void Geozones::setupGPS()
   }
 }
 
+// CALLBACKS //
+
+void Geozones::poseCallback(
+  const geometry_msgs::msg::PoseStamped::SharedPtr _msg)
+{
+  self_x_ = _msg->pose.position.x;
+  self_y_ = _msg->pose.position.y;
+  self_z_ = _msg->pose.position.z;
+
+  start_run_ = true;
+}
+
+void Geozones::setGeozoneCb(
+  const std::shared_ptr<as2_geozones::srv::SetGeozone::Request> request,
+  std::shared_ptr<as2_geozones::srv::SetGeozone::Response> response)
+{
+  if (!checkValidity(
+      std::size(request->geozone.polygon.points),
+      request->geozone.id, request->geozone.type,
+      request->geozone.data_type))
+  {
+    response->success = false;
+  } else {
+    geozone geozone_to_load;
+    std::vector<std::array<double, 2>> polygon;
+    for (int i = 0; i < std::size(request->geozone.polygon.points); i++) {
+      std::array<double, 2> point{request->geozone.polygon.points[i].x,
+        request->geozone.polygon.points[i].y};
+      polygon.push_back(point);
+    }
+    geozone_to_load.id = request->geozone.id;
+    geozone_to_load.alert = request->geozone.alert;
+    geozone_to_load.type = request->geozone.type;
+    geozone_to_load.data_type = request->geozone.data_type;
+    geozone_to_load.z_up = request->geozone.z_up;
+    geozone_to_load.z_down = request->geozone.z_down;
+    geozone_to_load.in = false;
+    geozone_to_load.polygon = polygon;
+    geozones_.push_back(geozone_to_load);
+
+    RCLCPP_INFO(this->get_logger(), "Geostructure added.");
+    response->success = true;
+  }
+}
+
+void Geozones::getGeozoneCb(
+  const std::shared_ptr<as2_geozones::srv::GetGeozone::Request> request,
+  std::shared_ptr<as2_geozones::srv::GetGeozone::Response> response)
+{
+  if (geozones_.size() == 0) {
+    RCLCPP_WARN(this->get_logger(), "No geozone has been set yet.");
+    response->success = false;
+  } else {
+    std::vector<as2_geozones::msg::Geozone> geozone_list;
+    for (std::vector<geozone>::iterator ptr = geozones_.begin();
+      ptr < geozones_.end(); ptr++)
+    {
+      as2_geozones::msg::Geozone geozone;
+      for (std::vector<std::array<double, 2>>::iterator ptr2 =
+        ptr->polygon.begin();
+        ptr2 < ptr->polygon.end(); ptr2++)
+      {
+        geometry_msgs::msg::Point32 point;
+        double x, y, z;
+        if (ptr->data_type == "gps") {
+          RCLCPP_INFO(
+            this->get_logger(), "POINT: %f, %f", (*ptr2)[0],
+            (*ptr2)[1]);
+          gps_handler->Local2LatLon(
+            (*ptr2)[0], (*ptr2)[1], 0.0, x, y,
+            z);
+          RCLCPP_INFO(this->get_logger(), "CONVERTED POINT: %f, %f", x, y);
+          point.x = x;
+          point.y = y;
+          z = 0.0;
+        } else {
+          point.x = (*ptr2)[0];
+          point.y = (*ptr2)[1];
+        }
+
+        geozone.polygon.points.push_back(point);
+      }
+      geozone.z_up = ptr->z_up;
+      geozone.z_down = ptr->z_down;
+      geozone.type = ptr->type;
+      geozone.data_type = ptr->data_type;
+      geozone.alert = ptr->alert;
+      geozone.id = ptr->id;
+      geozone_list.push_back(geozone);
+    }
+    response->geozone_list = geozone_list;
+    response->success = true;
+  }
+}
+
 void Geozones::rvizVisualizationCb()
 {
-  geozones::msg::Polygonlist polygonlist;
+  as2_geozones::msg::Polygonlist polygonlist;
   for (std::vector<geozone>::iterator geozone = geozones_.begin();
     geozone < geozones_.end(); geozone++)
   {
@@ -421,7 +424,6 @@ using CallbackReturn =
 
 CallbackReturn Geozones::on_configure(const rclcpp_lifecycle::State & _state)
 {
-  // Set subscriptions, publishers, services, actions, etc. here.
   this->get_parameter("config_file", config_path_);
   this->get_parameter("debug_rviz", rviz_visualization_);
 

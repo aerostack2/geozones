@@ -6,11 +6,11 @@ Params:
 - config_file: Polygons that define geofences are defined here. (IMPORTANT) Remember that the order in which points are given defines how the polygon is built, this means that n point will be conected to n+1 point and so on. Last point will be connected to the first point.
 Config file parameters:
 
-    - **id** (int): geo-estructure id 
+    - **id** (int): geozone id 
     - **alert** (int): generated alert
-    - **type** (string): geofence or geocage. Geofence would generate alert on entering the area, geocage would generate alert on exiting the area. 
+    - **type** (string): geofence or geocage. Geofence will generate alert on entering the area, geocage will generate alert on exiting the area. 
     - **data_type** (string): gps or cartesian. 
-    - **polygon** (list(2DPoint)): List of 2D points that forms the polygon. Should at least be 3.
+    - **polygon** (list(2DPoint)): List of 2D points that forms the polygon. Should at least be 3. Order matters. 
     - **z_up** (float): up limit, always in cartesian.
     - **z_down** (float): down limit, always in cartesian.
 
@@ -51,8 +51,8 @@ Example config file:
 
     Available Services:
 
-    - ```/set_geoestructure```: Set a geoestructure vía message.
-    - ```/get_geoestructure```: Get a list of all geoestructures available
+    - ```/set_geozone```: Set a geoestructure vía message.
+    - ```/get_geozone```: Get a list of all geoestructures available
 
     Published topics:
     - ```/alert_event```: Publish the defined alert message when a geoestructure event is triggered.

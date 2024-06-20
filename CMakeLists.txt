@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-set(PROJECT_NAME geozones)
+set(PROJECT_NAME as2_geozones)
 project(${PROJECT_NAME} VERSION 0.2.0)
 
 # Default to C++17
@@ -66,32 +66,49 @@ include_directories(
 )
 
 set(SOURCE_CPP_FILES
-  src/geozones.cpp
+  src/as2_geozones.cpp
 )
 
 # set(INCLUDE_HPP_FILES
 # include/${PROJECT_NAME}/as2_node_template_libs.hpp
 # )
-add_executable(${PROJECT_NAME}_node src/geozones_node.cpp ${SOURCE_CPP_FILES})
+add_executable(${PROJECT_NAME}_node src/as2_geozones_node.cpp ${SOURCE_CPP_FILES})
 ament_target_dependencies(${PROJECT_NAME}_node ${PROJECT_DEPENDENCIES})
+
+add_library(${PROJECT_NAME}_lib SHARED tests/as2_geozones_gtest.cpp ${SOURCE_CPP_FILES})
+ament_target_dependencies(${PROJECT_NAME}_lib ${PROJECT_DEPENDENCIES})
 
 rosidl_target_interfaces(${PROJECT_NAME}_node
   ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
+rosidl_target_interfaces(${PROJECT_NAME}_lib
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
 target_link_libraries(${PROJECT_NAME}_node nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME}_lib nlohmann_json::nlohmann_json)
+
+target_include_directories(${PROJECT_NAME}_lib PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
 
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME})
 
 install(DIRECTORY
+  launch
   config
-  DESTINATION share/${PROJECT_NAME}
-)
+  DESTINATION share/${PROJECT_NAME}_lib)
 
 install(TARGETS
   ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS
+  ${PROJECT_NAME}_lib
+  DESTINATION lib/${PROJECT_NAME}_lib)
 
 # find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
 # if(CMAKE_CXX_CPPCHECK)
@@ -112,6 +129,7 @@ if(BUILD_TESTING)
   )
   set(AMENT_LINT_AUTO_FILE_EXCLUDE ${EXCLUDE_FILES})
   ament_lint_auto_find_test_dependencies()
+  add_subdirectory(tests)
 endif()
 
 ament_package()

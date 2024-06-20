@@ -27,15 +27,15 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 /*!*******************************************************************************************
- *  \file       geozones.hpp
+ *  \file       as2_geozones.hpp
  *  \brief      Header file for geozones
  *  \authors    Javier Melero Deza
  *  \copyright  Copyright (c) 2024 Universidad Politécnica de Madrid
  *              All Rights Reserved
  ********************************************************************************/
 
-#ifndef GEOZONES__GEOZONES_HPP_
-#define GEOZONES__GEOZONES_HPP_
+#ifndef AS2_GEOZONES__AS2_GEOZONES_HPP_
+#define AS2_GEOZONES__AS2_GEOZONES_HPP_
 
 #include <limits>
 
@@ -48,10 +48,10 @@
 #include <string>
 #include <vector>
 
-#include "geozones/msg/geozone.hpp"
-#include "geozones/msg/polygonlist.hpp"
-#include "geozones/srv/get_geozone.hpp"
-#include "geozones/srv/set_geozone.hpp"
+#include "as2_geozones/msg/geozone.hpp"
+#include "as2_geozones/msg/polygonlist.hpp"
+#include "as2_geozones/srv/get_geozone.hpp"
+#include "as2_geozones/srv/set_geozone.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <geographic_msgs/msg/geo_point.hpp>
@@ -119,12 +119,12 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
 
   rclcpp::Publisher<as2_msgs::msg::AlertEvent>::SharedPtr alert_pub_;
-  rclcpp::Publisher<geozones::msg::Polygonlist>::SharedPtr rviz_pub_;
+  rclcpp::Publisher<as2_geozones::msg::Polygonlist>::SharedPtr rviz_pub_;
 
   rclcpp::TimerBase::SharedPtr timer_;
 
-  rclcpp::Service<geozones::srv::SetGeozone>::SharedPtr set_geozone_srv_;
-  rclcpp::Service<geozones::srv::GetGeozone>::SharedPtr get_geozone_srv_;
+  rclcpp::Service<as2_geozones::srv::SetGeozone>::SharedPtr set_geozone_srv_;
+  rclcpp::Service<as2_geozones::srv::GetGeozone>::SharedPtr get_geozone_srv_;
 
   geographic_msgs::msg::GeoPoint::UniquePtr origin_;
   rclcpp::Client<as2_msgs::srv::GetOrigin>::SharedPtr get_origin_srv_;
@@ -133,11 +133,11 @@ private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr _msg);
   void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr _msg);
   void setGeozoneCb(
-    const std::shared_ptr<geozones::srv::SetGeozone::Request> request,
-    std::shared_ptr<geozones::srv::SetGeozone::Response> response);
+    const std::shared_ptr<as2_geozones::srv::SetGeozone::Request> request,
+    std::shared_ptr<as2_geozones::srv::SetGeozone::Response> response);
   void getGeozoneCb(
-    const std::shared_ptr<geozones::srv::GetGeozone::Request> request,
-    std::shared_ptr<geozones::srv::GetGeozone::Response> response);
+    const std::shared_ptr<as2_geozones::srv::GetGeozone::Request> request,
+    std::shared_ptr<as2_geozones::srv::GetGeozone::Response> response);
 
   void rvizVisualizationCb();
 
@@ -155,4 +155,4 @@ private:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State &) override;
 };
 
-#endif  // GEOZONES__GEOZONES_HPP_
+#endif  // AS2_GEOZONES__AS2_GEOZONES_HPP_
